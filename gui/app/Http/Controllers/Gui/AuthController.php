@@ -5,7 +5,7 @@ namespace Scarlett\DMDD\GUI\Http\Controllers\Gui;
 
 use Scarlett\DMDD\GUI\Http\Controllers\GuiController;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends GuiController
@@ -27,7 +27,7 @@ class AuthController extends GuiController
         if (Auth::attempt($request->only('email', 'password'))) {
             // Regenerate session and redirect to dashboard
             $request->session()->regenerate();
-            return redirect()->route('dashboard')->with('success', 'Login successful.');
+            return redirect('/')->with('success', 'Login successful.');
         }
 
         // Redirect back with error message if authentication fails
