@@ -28,4 +28,8 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'dmdd' => [
+        'api_url' => env('API_URL'),
+    ],
+
 ];
