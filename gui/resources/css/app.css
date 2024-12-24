@@ -1,3 +1,105 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Base layer for theme variables */
+@layer base {
+    :root {
+        --background-color: #ffffff; /* Light mode background */
+        --menu-background-color: rgb(225, 230, 245); /* Dark mode background */
+        --text-color: #000000;       /* Light mode text color */
+        --darkmode-toggle-background: rgb(49, 46, 129);
+        --searchbar-background: #f3f4f6;
+        --menu-item-hover: #b3b3b3;
+    }
+
+    [data-theme="dark"] {
+        --background-color: rgb(26, 32, 44); /* Dark mode background */
+        --menu-background-color: rgb(225, 230, 245); /* Dark mode background */
+        --text-color: #333;       /* Dark mode text color */
+        --darkmode-toggle-background: #ffffff;
+        --searchbar-background: #f3f4f6;
+    }
+
+    body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+        transition: background-color 300ms ease, color 300ms ease;
+    }
+
+    button {
+        @apply bg-blue-500 text-white font-semibold py-2 px-4 rounded;
+    }
+
+    .dark-mode-toggle {
+        background-color: var(--darkmode-toggle-background);
+    }
+
+    .main-nav {
+        background-color: var(--menu-background-color);
+    }
+
+    .content-background {
+        @apply bg-[var(--background-color)];
+    }
+
+    .login-container {
+        @apply bg-[var(--background-color)];
+        > div {
+            box-shadow: 3px 4px 6px 1px #fcfcfccc;
+        }
+
+    }
+
+    .profile-menu {
+        background-color: var(--menu-background-color);
+
+        ul {
+            background-color: var(--menu-background-color);
+        }
+
+        ul li:hover {
+            background-color: var(--menu-item-hover);
+        }
+    }
+
+    .global-search {
+        @apply bg-[var(--menu-background-color)];
+    }
+}
+
+/* Utilities layer for flash messages */
+@layer utilities {
+    .flash-message {
+        @apply p-4 mb-4 rounded border-l-4;
+    }
+
+    .flash-error {
+        @apply bg-red-50 border-red-400 text-red-700;
+    }
+
+    .flash-success {
+        @apply bg-green-50 border-green-400 text-green-700;
+    }
+
+    .flash-info {
+        @apply bg-blue-50 border-blue-400 text-blue-700;
+    }
+
+    [data-theme="dark"] .flash-error {
+        @apply bg-red-900 border-red-700 text-red-200;
+    }
+
+    [data-theme="dark"] .flash-success {
+        @apply bg-green-900 border-green-700 text-green-200;
+    }
+
+    [data-theme="dark"] .flash-info {
+        @apply bg-blue-900 border-blue-700 text-blue-200;
+    }
+
+    /* Dark Mode Toggle Button Styles */
+    .dark-mode-toggle {
+        @apply text-white cursor-pointer;
+    }
+}

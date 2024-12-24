@@ -16,5 +16,17 @@ export default {
             },
         },
     },
-    plugins: [],
+    server: { 
+        hmr: {
+            host: 'localhost',
+        },
+        cors: true,
+        origin: 'http://localhost:9098',
+    }, 
+    plugins: [ 
+        require('daisyui'),
+        require('@tailwindcss/forms'),
+        require('@tailwindcss/typography'),
+        require('@tailwindcss/aspect-ratio')
+    ],
 };
