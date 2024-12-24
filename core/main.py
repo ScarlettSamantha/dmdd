@@ -12,7 +12,7 @@ from typing import Optional, Any
 from dotenv import load_dotenv
 import asyncio
 
-from api import Api as ApiHandler
+from api import APIHandler
 from system import System
 
 init(autoreset=True)  # Initialize colorama
@@ -55,7 +55,9 @@ class CoreDaemon:
         self.logger.info("Initializing CoreDaemon.")
         self.setup_database()
         self.setup_signal_handling()
-        self.api_handler = ApiHandler(self.app)
+        
+        self.api_handler: APIHandler = APIHandler(self.app)
+        
         self.system = System(self.logger, self.db)
         self.echo_configuration()
 
@@ -213,6 +215,3 @@ if __name__ == "__main__":
         downgrade()
     else:
         daemon.run()
-    
-# For workzeug and wsgi server we export the app object to be used by the server.
-api_app = CoreDaemon().api_app
