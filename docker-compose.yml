@@ -5,14 +5,12 @@ services:
     image: nginx:latest
     container_name: dmdd-nginx
     ports:
-      - "80:80"
+      - "80:80" # Expose nginx to the host
     volumes:
-      - .configs/nginx/vhost.conf:/etc/nginx/conf.d/default.conf
+      - ./configs/nginx/vhost.conf:/etc/nginx/conf.d/default.conf
     networks:
-      - dmdd-network
-    depends_on:
-      - dmdd-php-fpm
-      - dmdd-core
+      - dmdd-public-network # Accessible externally
+      - dmdd-internal-network # Communicate with other services
 
   dmdd-php-fpm:
     image: php:8.2-fpm
@@ -21,7 +19,7 @@ services:
       - ./gui:/var/www/html
       - ./.env:/var/www/html/.env:ro
     networks:
-      - dmdd-network
+      - dmdd-internal-network # Internal only
 
   dmdd-core:
     build:
@@ -32,11 +30,13 @@ services:
       - ./core:/app
       - ./.env:/app/.env:ro
     networks:
-      - dmdd-network
+      - dmdd-internal-network # Internal only
     command: >
-      sh -c "gunicorn -w 4 -b 0.0.0.0:5000 main:daemon.app"
+      sh -c "python3 main.py"
 
 networks:
-  dmdd-network:
+  dmdd-public-network:
+    driver: bridge
+  dmdd-internal-network:
     driver: bridge
     internal: true
