@@ -528,3 +528,4 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,phpunit,phpstorm+iml,phpstorm+all,php-cs-fixer,laravel,flask,macos,linux,windows
 core/tmp/
+builds/artifacts/
