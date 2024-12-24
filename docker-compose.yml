@@ -5,21 +5,32 @@ services:
     image: nginx:latest
     container_name: dmdd-nginx
     ports:
-      - "80:80" # Expose nginx to the host
+      - "9098:80" # Expose nginx to the host
     volumes:
-      - ./configs/nginx/vhost.conf:/etc/nginx/conf.d/default.conf
+      - ./.configs/nginx/vhost.conf:/etc/nginx/conf.d/default.conf
     networks:
       - dmdd-public-network # Accessible externally
       - dmdd-internal-network # Communicate with other services
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
 
   dmdd-php-fpm:
-    image: php:8.2-fpm
     container_name: dmdd-php-fpm
+    build:
+      context: ./gui
+      dockerfile: Dockerfile
     volumes:
       - ./gui:/var/www/html
-      - ./.env:/var/www/html/.env:ro
+      - .configs/php/php.ini:/usr/local/etc/php/php.ini
+      - .configs/php/php-fpm.conf:/usr/local/etc/php-fpm.d/zzz-php-fpm.conf
+      - .env:/var/www/html/.env
     networks:
       - dmdd-internal-network # Internal only
+      - dmdd-public-network # Accessible externally
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
 
   dmdd-core:
     build:
@@ -28,9 +39,13 @@ services:
     container_name: dmdd-core
     volumes:
       - ./core:/app
-      - ./.env:/app/.env:ro
+      - ${PWD}/.env:/app/.env:ro
     networks:
       - dmdd-internal-network # Internal only
+      - dmdd-public-network # Accessible externally
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
     command: >
       sh -c "python3 main.py"
 

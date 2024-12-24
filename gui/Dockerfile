@@ -1,32 +1,50 @@
+# Use the official PHP 8.2 FPM image
 FROM php:8.2-fpm
 
-# Install system dependencies
+# Install system dependencies, configure, and install PHP extensions
 RUN apt-get update && apt-get install -y \
-    curl \
     git \
+    curl \
     unzip \
+    zip \
+    libzip-dev \
+    libicu-dev \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    zip \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+    libcurl4-openssl-dev \
+    pkg-config \
+    build-essential \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-configure zip \
+    && pecl install xdebug \
+    && docker-php-ext-enable xdebug \
+    && docker-php-ext-install -j20 \
+       gd \
+       mbstring \
+       mysqli \
+       pdo \
+       pdo_mysql \
+       intl \
+       exif \
+       pcntl \
+       bcmath \
+       soap \
+       sockets \
+       zip \
+       curl
 
 # Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+    && php composer-setup.php \
+    && php -r "unlink('composer-setup.php');" \
+    && mv composer.phar /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy existing application directory contents
+# Copy project files (if you already have a project)
 COPY . .
-
-# Set permissions for storage and bootstrap/cache
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage \
-    && chmod -R 775 /var/www/html/bootstrap/cache
-
-# Install PHP dependencies
-RUN composer install --optimize-autoloader --no-dev
 
 # Expose port 9000 and start php-fpm server
 EXPOSE 9000
