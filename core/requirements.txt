@@ -1,0 +1,12 @@
+flask
+flask-restful
+flask-cors
+flask-auth
+flask-SQLAlchemy
+flask-migrate
+colorama
+requests
+SQLAlchemy
+setproctitle
+python-dotenv
+gunicorn
