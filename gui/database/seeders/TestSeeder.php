@@ -1,20 +1,19 @@
 <?php
-
-namespace Scarlett\DMDD\GUI\Seeders;
+namespace Database\Seeders;
 
 use Scarlett\DMDD\GUI\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
-class DatabaseSeeder extends Seeder
+class TestSeeder extends Seeder
 {
-
     public function run(): void
     {
-        // User::factory(10)->create();
-
+        // Create a default admin user
         User::factory()->create([
             'name' => 'Admin',
             'email' => 'admin@dmdd.eu',
+            'password' => Hash::make('dmdd-changeme-password-935372095'), 
         ]);
     }
 }
