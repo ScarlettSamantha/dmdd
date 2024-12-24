@@ -3,16 +3,16 @@
 <head>
     @include('partials.head')
 </head>
-<body class="bg-gray-100">
+<body class="content-background min-h-screen flex flex-col">
     @if(Auth::check())
         @include('partials.navbar')
     @endif
 
-    @yield('content')
+    <main class="flex-grow">
+        @yield('content')
+    </main>
 
     <!-- Footer -->
-    <footer class="container mx-auto mt-8 p-4 bg-base-100 shadow-md rounded-lg">
-        @include('partials.footer')
-    </footer>
+    @include('partials.footer')
 </body>
 </html>

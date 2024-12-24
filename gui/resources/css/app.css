@@ -2,12 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+@import "@fontawsome/free-brands-svg-icons/"
+
 /* Base layer for theme variables */
 @layer base {
     :root {
         --background-color: #ffffff; /* Light mode background */
         --menu-background-color: rgb(225, 230, 245); /* Dark mode background */
         --text-color: #000000;       /* Light mode text color */
+        --standout-background: #000000;
+        --standout-text: #ffffff;
         --darkmode-toggle-background: rgb(49, 46, 129);
         --searchbar-background: #f3f4f6;
         --menu-item-hover: #b3b3b3;
@@ -16,7 +21,9 @@
     [data-theme="dark"] {
         --background-color: rgb(26, 32, 44); /* Dark mode background */
         --menu-background-color: rgb(225, 230, 245); /* Dark mode background */
-        --text-color: #333;       /* Dark mode text color */
+        --text-color: #fff;       /* Dark mode text color */
+        --standout-background: #ffffff;
+        --standout-text: #000000;
         --darkmode-toggle-background: #ffffff;
         --searchbar-background: #f3f4f6;
     }
@@ -36,7 +43,8 @@
     }
 
     .main-nav {
-        background-color: var(--menu-background-color);
+        background-color: var(--standout-background) !important;
+        color: var(--standout-text) !important;
     }
 
     .content-background {
@@ -51,11 +59,20 @@
 
     }
 
+    .footer {
+        background-color: var(--standout-background) !important;
+        color: var(--standout-text) !important;
+        > div { 
+            background-color: var(--standout-background) !important; 
+            color: var(--standout-text) !important;
+        }
+    }
+
     .profile-menu {
-        background-color: var(--menu-background-color);
+        background-color: var(--standout-background);
 
         ul {
-            background-color: var(--menu-background-color);
+            background-color: var(--standout-background);
         }
 
         ul li:hover {
@@ -64,7 +81,58 @@
     }
 
     .global-search {
-        @apply bg-[var(--menu-background-color)];
+        @apply bg-[var(--standout-background)];
+    }
+
+    .content-container{
+        margin-left:10px;
+    }
+
+    .library-menu-container {
+        > .library-menu {
+            > ul {
+                background-color: var(--standout-background);
+                > div {
+                    margin-top:0px;
+                    margin-bottom:0px;
+                }
+                > li{
+                    :first-child {
+                        margin-top:5px;
+                    }
+                    :last-child {
+                        margin-bottom:5px;
+                    }
+                    > .indicator-item {
+                        padding: 3px;
+                        > .indicator-text{
+                            font-size: smaller;
+                            margin-top:-4px;
+                        }
+                    }
+                    font-size: 8px;
+                    color: var(--standout-text);
+                }
+            }
+        }
+    }
+
+    .library-container{
+        padding-top:10px;
+        padding-bottom:5px;
+        > table {
+            > tbody {
+                :hover {
+                    background-color: var(--menu-item-hover);
+                }
+                > tr {
+                    > td {
+                        background-color: transparent;
+                    }
+                    
+                }
+            }
+        }
     }
 }
 

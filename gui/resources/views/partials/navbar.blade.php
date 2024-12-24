@@ -1,4 +1,4 @@
-<div class="p-4 lg:p-8">
+<div class="p-4 lg:p-4">
     <div class="navbar shadow-md rounded-lg main-nav flex justify-between items-center">
         <!-- Navbar Start -->
         <div class="navbar-start flex items-center">
