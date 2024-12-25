@@ -1,6 +1,6 @@
 @extends('layout')
 
-@section('title','Dashboard')
+@section('title', 'Dashboard')
 
 @section('content')
 <div class="dashboard-container p-4 lg:p-4">
@@ -65,13 +65,17 @@
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
                     </a>
-                   
                 </li>
             </ul>
         </div>
         <!-- Content Area -->
         <div class="flex-grow content-container">
-            <div class="flex-grow bg-base-300 rounded-box h-auto library-container">@include('partials.dashboard.library-table')</div>
+            <div class="flex-grow bg-base-300 rounded-box h-auto library-container">
+                @include('partials.dashboard.library-table', ['actions' => [
+                    '<button class="btn btn-primary btn-sm btn-outline p-0"><span class="material-symbols-sharp">add</span></button>',
+                    '<button class="btn btn-primary btn-sm btn-outline p-0"><span class="material-symbols-sharp">search</span></button>'
+                ]])
+            </div>
         </div>
     </div>
 </div>

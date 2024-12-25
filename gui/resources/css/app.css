@@ -48,12 +48,35 @@
         @apply bg-[var(--background-color)];
     }
 
+    .dmdd-table{
+        > thead {
+            > tr > th {
+                color: var(--text-color) !important;
+            }
+            > tr > th .dmdd-table-actions > button {
+                margin-left:2px;
+            }
+        }
+        > tfoot > tr > th {
+            color: var(--text-color) !important;
+        }
+        .dmdd-table-actions > button { 
+            &:not(:first-child) {
+                margin-left: 2px;
+            }
+        }
+    }
+
+    .table-badge{
+        @apply bg-[var(--standout-background)] text-[var(--standout-text)] !important;
+    }
+
     .login-container {
         @apply bg-[var(--background-color)];
         > div {
             box-shadow: 3px 4px 6px 1px #fcfcfccc;
             > .login-header {
-                color: var(--standout-text) !important;
+                color: var(--standout-text) !important; 
             }
             > .login-text {
                 color: var(--standout-text) !important;
@@ -95,7 +118,8 @@
     }
 
     .global-search {
-        @apply bg-[var(--standout-background)];
+        @apply bg-[var(--searchbar-background)] !important;
+        color: var(--text-color);
     }
 
     .content-container{
