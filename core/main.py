@@ -182,7 +182,7 @@ class CoreDaemon:
         self.logger.info("CoreDaemon has shut down.")
         sys.exit(0)
 
-
+# this is the entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
     from flask_migrate import upgrade, downgrade
@@ -215,3 +215,10 @@ if __name__ == "__main__":
         downgrade()
     else:
         daemon.run()
+# this is the entry point for the flask cli utility
+else:
+    daemon = CoreDaemon()
+    # flask helpers
+    db = daemon.db
+    migrate = daemon.migrate
+    app = daemon.app
