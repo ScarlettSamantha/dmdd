@@ -21,6 +21,9 @@ Route::middleware(['web'])->group(function () {
 # Web gui
 Route::middleware([Authenticate::class])->group(function () {
     Route::get('/', [DashboardController::class, 'get'])->name('dashboard')->name('home');
+
+    
+
 });
 
 
