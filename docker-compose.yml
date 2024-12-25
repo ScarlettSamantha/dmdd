@@ -48,7 +48,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
     command: >
-      sh -c "python3 main.py"
+        sh -c "PYTHONPATH=/app python3 -m main"
+
 
 networks:
   dmdd-public-network:
