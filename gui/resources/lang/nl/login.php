@@ -7,4 +7,9 @@ return [
     'email_label' => 'E-mail',
     'password_label' => 'Wachtwoord',
     'submit_button' => 'Inloggen',
+    'forgot_password' => 'Wachtwoord vergeten?',
+    'register' => 'Registreren',
+    'remember_me' => 'Onthoud mij',
+    'email_required' => 'E-mail is verplicht',
+    'text' => 'Log in om door te gaan',
 ];

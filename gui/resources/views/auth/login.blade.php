@@ -5,9 +5,12 @@
 @section('content')
 <div class="min-h-screen flex items-center justify-center content-background login-container">
     <div class="w-full max-w-md bg-white border-2 border-dark-purple rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-bold mb-6 text-center text-dark-purple">{{ __('login.heading') }}</h2>
+        <h2 class="text-2xl font-bold mb-6 text-center text-dark-purple login-header">{{ __('login.heading') }}</h2>
         @include('partials.flash-messages')
         @include('partials.notifications')
+        <div class="login-text">
+            <p class="text-sm text-gray-600">{{ __('login.text') }}</p>
+        </div>
 
         <form action="{{ route('login') }}" method="POST" class="space-y-4">
             @csrf

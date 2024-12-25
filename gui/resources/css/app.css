@@ -2,9 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "@fortawesome/fontawesome-free/css/all.min.css";
-@import "@fontawsome/free-brands-svg-icons/"
-
 /* Base layer for theme variables */
 @layer base {
     :root {
@@ -55,6 +52,23 @@
         @apply bg-[var(--background-color)];
         > div {
             box-shadow: 3px 4px 6px 1px #fcfcfccc;
+            > .login-header {
+                color: var(--standout-text) !important;
+            }
+            > .login-text {
+                color: var(--standout-text) !important;
+            }
+            > form {
+                > div {
+                    > label {
+                        color: var(--standout-text) !important;
+                    }
+                    > input {
+                        background-color: var(--standout-background) !important;
+                        color: var(--standout-text) !important;
+                    }
+                }
+            }
         }
 
     }
