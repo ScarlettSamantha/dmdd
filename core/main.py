@@ -6,14 +6,19 @@ from logging.handlers import RotatingFileHandler
 from colorama import Fore, Style, init
 from flask import Flask
 from flask_restful import Api
-from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from typing import Optional, Any
 from dotenv import load_dotenv
 import asyncio
 
+from alembic import command, config as alembic_config
+from sqlalchemy import MetaData
+
 from api import APIHandler
 from system import System
+
+from models.user import User
+from models.model import BaseModel
 
 init(autoreset=True)  # Initialize colorama
 
@@ -29,14 +34,12 @@ class CoreDaemon:
     db_engine: Optional[Any]
     db_session: Optional[Any]
     running: bool
-    db: SQLAlchemy
-    migrate: Migrate
 
     def __init__(self) -> None:
         load_dotenv()
 
         self.app = Flask(__name__)
-        self.db_path = os.getenv("DB_PATH", "sqlite:///database.sqlite3")
+        self.db_path = os.getenv("DB_PATH", "sqlite:///./database.sqlite3")
         self.log_path = os.getenv("LOG_PATH", "./tmp/core_daemon.log")
         self.db_engine = None
         self.db_session = None
@@ -46,8 +49,8 @@ class CoreDaemon:
         self.app.config['SQLALCHEMY_DATABASE_URI'] = self.db_path
         self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-        self.db = SQLAlchemy(self.app)
-        self.migrate = Migrate(self.app, self.db)
+        self.db = SQLAlchemy(model_class=BaseModel)
+        self.db.init_app(self.app)
 
         self.setup_logging()
         self.logger = logging.getLogger("CoreDaemon")
@@ -55,10 +58,11 @@ class CoreDaemon:
         self.logger.info("Initializing CoreDaemon.")
         self.setup_database()
         self.setup_signal_handling()
-        
+
         self.api_handler: APIHandler = APIHandler(self.app)
-        
-        self.system = System(self.logger, self.db)
+        self.register_cli_commands()
+
+        self.system = System(self.app, self.logger, self.db)
         self.echo_configuration()
 
     def setup_logging(self) -> None:
@@ -102,16 +106,14 @@ class CoreDaemon:
             self.logger.error(f"Failed to initialize database: {e}")
             sys.exit(1)
 
-
     def setup_signal_handling(self) -> None:
         """Set up signal handling for graceful shutdown and info."""
         signal.signal(signal.SIGINT, self.graceful_shutdown)
         signal.signal(signal.SIGTERM, self.graceful_shutdown)
         try:
-            # SIGINFO is platform-dependent (e.g., macOS), guard against its absence
             signal.signal(signal.SIGUSR2, self.print_status)
         except AttributeError:
-            pass  # Skip if not supported on the current platform
+            pass
 
     def print_status(self, *args: Any) -> None:
         """Print the current status of the daemon."""
@@ -151,19 +153,17 @@ class CoreDaemon:
     def graceful_shutdown(self, *args: Any) -> None:
         """Shutdown gracefully, releasing resources."""
         if self.shutting_down:
-            return  # Prevent multiple shutdowns
+            return
         self.shutting_down = True
 
         self.logger.info("Shutting down CoreDaemon gracefully.")
         self.running = False
 
-        # Stop and clean up async tasks
         loop = asyncio.get_event_loop()
         if loop.is_running():
             self.logger.info("Stopping the asyncio event loop.")
             loop.stop()
 
-        # Wait for all pending tasks to finish
         pending_tasks = asyncio.all_tasks(loop=loop)
         for task in pending_tasks:
             task.cancel()
@@ -178,14 +178,51 @@ class CoreDaemon:
         except RuntimeError as e:
             self.logger.warning(f"Error during async loop shutdown: {e}")
 
-        # Additional cleanup, if any
         self.logger.info("CoreDaemon has shut down.")
         sys.exit(0)
 
-# this is the entry point for the core daemon and docker container
+    def register_cli_commands(self) -> None:
+        """Register custom CLI commands for flask-migrate."""
+        @self.app.cli.command("db-init")
+        def db_init():
+            """Initialize the migration directory."""
+            
+            import models  # Import models dynamically
+
+            with self.app.app_context():
+                init()
+                self.logger.info("Migration directory initialized.")
+
+        @self.app.cli.command("db-migrate")
+        def db_migrate():
+            """Generate a new migration."""
+            with self.app.app_context():
+                alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
+                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
+                command.revision(alembic_cfg, autogenerate=True, message="Generate migration")
+                self.logger.info("Migration script created.")
+
+        @self.app.cli.command("db-upgrade")
+        def db_upgrade():
+            """Apply migrations."""
+            with self.app.app_context():
+                alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
+                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
+                command.upgrade(alembic_cfg, "head")
+                self.logger.info("Database upgraded successfully.")
+
+        @self.app.cli.command("db-downgrade")
+        def db_downgrade():
+            """Revert migrations."""
+            with self.app.app_context():
+                alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
+                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
+                command.downgrade(alembic_cfg, "-1")
+                self.logger.info("Database downgraded successfully.")
+
+# Entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
-    from flask_migrate import upgrade, downgrade
 
     parser = argparse.ArgumentParser(description="CoreDaemon")
     parser.add_argument("--db-path", type=str, help="Path to the SQLite database file.")
@@ -208,13 +245,14 @@ if __name__ == "__main__":
     daemon = CoreDaemon()
 
     if args.command == "migrate":
-        upgrade()
+        daemon.db_migrate()
     elif args.command == "upgrade":
-        upgrade()
+        daemon.db_upgrade()
     elif args.command == "downgrade":
-        downgrade()
+        daemon.db_downgrade()
     else:
         daemon.run()
+        
 # this is the entry point for the flask cli utility
 else:
     daemon = CoreDaemon()
