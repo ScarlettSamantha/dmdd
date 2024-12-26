@@ -1,30 +1,42 @@
 import logging
 import asyncio
 import sqlalchemy
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, ForwardRef, Self
 from tasks.task import Task
 from tasks.example.main import ExampleTask
 import setproctitle
 import threading
+import types
+from models.user import User
 
 
 class System:
-    def __init__(self, logger: logging.Logger, db: sqlalchemy.engine.base.Engine) -> None:
+    def __init__(self, app, logger: logging.Logger, db: sqlalchemy.engine.base.Engine) -> None:
         setproctitle.setproctitle("CoreDaemon-System")
-
+        self.app = app
         self.logger: logging.Logger = logger.getChild("System")
         self.db: sqlalchemy.engine.base.Engine = db
+ 
         self.tasks: Dict[datetime, List[Task]] = {}
         self.running_tasks: List[asyncio.Task] = []
 
         self.__register_tasks()
 
     def __register_tasks(self: Self) -> None:
-        self.add_task(ExampleTask("ExampleTask", timedelta(seconds=10), logger=self.logger))
+        task = ExampleTask("ExampleTask", timedelta(seconds=10), logger=self.logger, db=self.db, app=self.app)
+        self.add_task(task)
 
     def add_task(self, task: Task) -> None:
         """Add a task to the system."""
+        if hasattr(task, "first_call") and callable(getattr(task, "first_call")):
+            self.logger.info(f"Executing first call for task {task.name}.")
+            try:
+                task.first_call()  # Call the first_call method
+            except Exception as e:
+                self.logger.error(f"Task {task.name} first_call failed with error: {e}")
+
         if task.next_run not in self.tasks:
             self.tasks[task.next_run] = []
         self.tasks[task.next_run].append(task)
@@ -65,6 +77,22 @@ class System:
                 del self.tasks[run_time]
 
             await asyncio.sleep(1)
+
+    async def stop(self) -> None:
+        """Stop the system and notify all tasks."""
+        self.logger.info("Stopping system and notifying all tasks.")
+        
+        for run_time, task_list in self.tasks.items():
+            for task in task_list:
+                if hasattr(task, "stop") and callable(getattr(task, "stop")):
+                    self.logger.info(f"Calling stop for task {task.name}.")
+                    try:
+                        await task.stop()
+                    except Exception as e:
+                        self.logger.error(f"Task {task.name} stop failed with error: {e}")
+
+        await self._wait_for_running_tasks()
+        self.logger.info("System stopped.")
 
     async def _wait_for_running_tasks(self) -> None:
         """Wait for all running tasks to finish."""
