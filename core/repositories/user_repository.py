@@ -13,3 +13,25 @@ class UserRepository(BaseRepository[User]):
     def find_by_email(self, email: str) -> Optional[User]:
         self.db.session.query(User).all()
         return self.session.query(self.model).filter_by(email=email).first()
+    
+    @execute_with_context
+    def register_user(self, username: str, email: str, password: str, active_user: bool = False, confirm_user: bool = False, admin_user: bool = False, generate_api_key: bool = False,**kwargs) -> User:
+        user = User(username=username, email=email, is_active=active_user, is_confirmed=confirm_user, is_admin=admin_user, **kwargs)
+        user.set_password(password)
+        
+        if generate_api_key:
+            user.generate_api_key()
+            
+        self.db.session.add(user)
+        self.db.session.commit()
+        return user
+    
+    @execute_with_context
+    def block_user(self, user: User) -> None:
+        user.is_active = False
+        self.db.session.commit()
+        
+    @execute_with_context
+    def unblock_user(self, user: User) -> None:
+        user.is_active = True
+        self.db.session.commit()

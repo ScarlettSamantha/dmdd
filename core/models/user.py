@@ -20,6 +20,7 @@ class User(BaseModel):
     first_name: Mapped[str] = mapped_column(String(100), nullable=True)
     last_name: Mapped[str] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
@@ -47,6 +48,12 @@ class User(BaseModel):
         :return: True if the password matches, False otherwise.
         """
         return self._verify_password(password, self.password_hash, self.password_salt)
+    
+    def generate_api_key(self) -> None:
+        """
+        Generate a new API key for the user.
+        """
+        self.api_key = self._generate_api_key()
 
     @staticmethod
     def _generate_salt() -> str:
@@ -80,3 +87,15 @@ class User(BaseModel):
         :return: True if the password matches, False otherwise.
         """
         return hashlib.sha3_512(f"{salt}{password}".encode()).hexdigest() == hashed_password
+    
+    @staticmethod
+    def _generate_api_key() -> str:
+        """
+        Generate a new API key.
+
+        :return: A new random
+        """
+        return str(uuid.uuid4())
+    
+    
+    

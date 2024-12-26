@@ -54,7 +54,12 @@ class BaseRepository(Generic[T]):
         except SQLAlchemyError as e:
             self.db.session.rollback()
             raise e
-
+        
     @execute_with_context
     def count(self) -> int:
         return self.db.session.query(sql_func.count(self.model.id)).scalar()
+
+    @execute_with_context
+    def print_db_path(self) -> None:
+        engine = self.db.get_engine()
+        print(f"Database path: {engine.url}")
