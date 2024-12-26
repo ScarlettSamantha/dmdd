@@ -15,8 +15,6 @@ class ExampleTask(Task):
     async def tick(self) -> None:
         user_repo = UserRepository(self.db, self.app)
         self.logger.info(f"User count: {user_repo.count()}")
-        
-        threading.current_thread().name = f"Task-{self.name}"
         await asyncio.sleep(0.1)
         
         self.logger.info("Executing example task.")
