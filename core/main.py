@@ -197,6 +197,21 @@ class CoreDaemon:
             self.logger.info(f"User {username} created successfully.")
             
         @click.argument("username")
+        @self.app.cli.command("user-set-password")
+        def user_set_password(username):
+            """Set the password for a user."""
+            from repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.db, self.app)
+            user = user_repo.find_by_username(username)
+            if user:
+                password = click.prompt("Enter the new password", hide_input=True, confirmation_prompt=True)
+                user.set_password(password)
+                user_repo.update(user)
+                self.logger.info(f"Password for user {username} set successfully.")
+            else:
+                self.logger.error(f"User {username} not found.")
+            
+        @click.argument("username")
         @self.app.cli.command("user-activate")
         def user_activate(username):
             """Activate a user account."""
