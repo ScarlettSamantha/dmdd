@@ -10,6 +10,7 @@ from flask_sqlalchemy import SQLAlchemy
 from typing import Optional, Any
 from dotenv import load_dotenv
 import asyncio
+import click
 
 from alembic import command, config as alembic_config
 from sqlalchemy import MetaData
@@ -39,7 +40,7 @@ class CoreDaemon:
         load_dotenv()
 
         self.app = Flask(__name__)
-        self.db_path = os.getenv("DB_PATH", "sqlite:///./database.sqlite3")
+        self.db_path = os.getenv("DB_PATH", "sqlite:////app/instance/./db.sqlite3")
         self.log_path = os.getenv("LOG_PATH", "./tmp/core_daemon.log")
         self.db_engine = None
         self.db_session = None
@@ -183,6 +184,18 @@ class CoreDaemon:
 
     def register_cli_commands(self) -> None:
         """Register custom CLI commands for flask-migrate."""
+            
+        @click.argument("username")
+        @click.argument("email")
+        @click.argument("password")
+        @self.app.cli.command("user-create")
+        def user_create(username, email, password):
+            """Create a new user with the provided username, email, and password."""
+            from repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.db, self.app)
+            user_repo.register_user(username, email, password)
+            self.logger.info(f"User {username} created successfully.")
+        
         @self.app.cli.command("db-init")
         def db_init():
             """Initialize the migration directory."""
@@ -223,6 +236,8 @@ class CoreDaemon:
 # Entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
+    import click
+
 
     parser = argparse.ArgumentParser(description="CoreDaemon")
     parser.add_argument("--db-path", type=str, help="Path to the SQLite database file.")
@@ -258,5 +273,4 @@ else:
     daemon = CoreDaemon()
     # flask helpers
     db = daemon.db
-    migrate = daemon.migrate
     app = daemon.app
