@@ -1,26 +1,26 @@
+# Core stuff imports
 import os
-import signal
 import sys
+import click
+import signal
 import logging
-from logging.handlers import RotatingFileHandler
-from colorama import Fore, Style, init
+import asyncio
 from flask import Flask
 from flask_restful import Api
-from flask_sqlalchemy import SQLAlchemy
-from typing import Optional, Any
 from dotenv import load_dotenv
-import asyncio
-import click
-
+from typing import Optional, Any
+from colorama import Fore, Style, init
+from flask_sqlalchemy import SQLAlchemy
+from logging.handlers import RotatingFileHandler
 from alembic import command, config as alembic_config
-from sqlalchemy import MetaData
 
+# application imports
 from api import APIHandler
 from system import System
 
-from models.user import User
 from models.model import BaseModel
 
+# Initialize colorama for colored CLI output
 init(autoreset=True)  # Initialize colorama
 
 def ensure_path_exists(path: str) -> None:
@@ -60,7 +60,7 @@ class CoreDaemon:
         self.setup_database()
         self.setup_signal_handling()
 
-        self.api_handler: APIHandler = APIHandler(self.app)
+        self.api_handler: APIHandler = APIHandler(self.app, self.db)
         self.register_cli_commands()
 
         self.system = System(self.app, self.logger, self.db)
@@ -195,11 +195,37 @@ class CoreDaemon:
             user_repo = UserRepository(self.db, self.app)
             user_repo.register_user(username, email, password)
             self.logger.info(f"User {username} created successfully.")
+            
+        @click.argument("username")
+        @self.app.cli.command("user-activate")
+        def user_activate(username):
+            """Activate a user account."""
+            from repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.db, self.app)
+            user = user_repo.find_by_username(username)
+            if user:
+                user_repo.activate_user(user)
+                self.logger.info(f"User {username} activated successfully.")
+            else:
+                self.logger.error(f"User {username} not found.")
+                
+                
+        @click.argument("username")
+        @self.app.cli.command("user-confirm")
+        def user_confirm(username):
+            """Confirm a user account."""
+            from repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.db, self.app)
+            user = user_repo.find_by_username(username)
+            if user:
+                user_repo.confirm_user(user)
+                self.logger.info(f"User {username} confirmed successfully.")
+            else:
+                self.logger.error(f"User {username} not found.")
         
         @self.app.cli.command("db-init")
         def db_init():
             """Initialize the migration directory."""
-            
             import models  # Import models dynamically
 
             with self.app.app_context():
@@ -236,8 +262,6 @@ class CoreDaemon:
 # Entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
-    import click
-
 
     parser = argparse.ArgumentParser(description="CoreDaemon")
     parser.add_argument("--db-path", type=str, help="Path to the SQLite database file.")
