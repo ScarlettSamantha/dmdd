@@ -1,10 +1,12 @@
 from models.user import User
 from typing import Optional
+from flask_sqlalchemy import SQLAlchemy
+from flask import Flask
 
 from .repository import BaseRepository, execute_with_context
 
 class UserRepository(BaseRepository[User]):
-    def __init__(self, db, app):
+    def __init__(self, db: SQLAlchemy, app: Flask):
         super().__init__(db=db, model=User, app=app)
 
     @execute_with_context
