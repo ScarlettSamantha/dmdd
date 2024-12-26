@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import ForwardRef
+import threading
 import logging
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
 class Task(ABC):
-    def __init__(self, name: str, run_interval: timedelta, app, logger: logging.Logger, db, is_blocking: bool = False) -> None:
+    def __init__(self, name: str, run_interval: timedelta, app: Flask, logger: logging.Logger, db: SQLAlchemy, is_blocking: bool = False) -> None:
         self.name: str = name
-        self.app = app
+        self.app: Flask = app
         self.logger: logging.Logger = logger.getChild(name)
         self.run_interval: timedelta = run_interval
         self.next_run: datetime = datetime.now() + self.run_interval
         self.is_blocking: bool = is_blocking
-        self.db = db
+        self.db: SQLAlchemy = db
 
     def update_next_run(self) -> None:
         """Update the next run time for the task."""
@@ -23,8 +25,7 @@ class Task(ABC):
         pass
     
     def first_call(self) -> None:
-        """Define the logic to be executed on the first call of the task."""
-        pass
+        threading.current_thread().name = f"Task-{self.name}"
 
     @abstractmethod
     def health_check(self) -> str:
