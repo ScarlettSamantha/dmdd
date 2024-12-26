@@ -6,6 +6,7 @@ flask-SQLAlchemy
 colorama
 requests
 SQLAlchemy
+SQLAlchemy-serializer
 setproctitle
 python-dotenv
 gunicorn

@@ -3,6 +3,7 @@ from typing import Type, TypeVar
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import declared_attr, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy_serializer import SerializerMixin
 from uuid import uuid4, UUID
 
 # Type variable for model classes
@@ -10,12 +11,16 @@ T = TypeVar('T', bound='BaseModel')
 
 base = declarative_base()
  
-class BaseModel(base):
+class BaseModel(base, SerializerMixin):
     """
     Base model class that other models will inherit from.
     Provides common columns and methods for migrations and utilities.
     """
     __abstract__ = True
+    serialize_head_only = tuple()
+    serialize_head_rules = tuple()
+    serialize_only = tuple()
+    serialize_rules = tuple()
 
     @declared_attr
     def id(cls) -> Mapped[str]:
@@ -90,3 +95,14 @@ class BaseModel(base):
         :param value: UUID object to set as the ID.
         """
         self.id = str(value)
+
+    def api_response(self, full: bool = True) -> dict:
+        """
+        Get a dictionary representation of the model instance for API responses.
+
+        :return: Dictionary representation of the model.
+        """
+        if full:
+            return self.to_dict(rules=self.serialize_rules, only=self.serialize_only)
+        else: 
+            return self.to_dict(rules=self.serialize_head_rules, only=self.serialize_head_only)
