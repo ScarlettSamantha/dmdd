@@ -31,6 +31,9 @@ class APIHandler:
         self.db = db 
         self.authenticator = ApiAuthenticator(app, db)
         self.setup_routes()
+        
+    def unauthorized(self) -> dict:
+        return {"status": "error", "message": "Unauthorized", "http_code": 401}
 
     def require_auth(self, func: Callable):
         """
@@ -42,7 +45,7 @@ class APIHandler:
             token = token.split(" ")[1] if token and token.split(" ").__len__() > 1 else None
             user = self.authenticator.authenticate(token)
             if not user:
-                return dumps({"status": "error", "message": "Unauthorized"})
+                return dumps(self.unauthorized())
 
             g.user = user  # Store the authenticated user in the global context
             return func(*args, **kwargs)
@@ -64,6 +67,25 @@ class APIHandler:
         # Version routes
         self.api.add_resource(VersionResource, '/version', '/api/system/version')
 
+
+class AuthResource(Resource):
+    
+    func_auth_required = ()
+    
+    def __init__(self, require_auth: Callable, app, db):
+        self.app = app
+        self.db = db
+        self.require_auth = require_auth
+
+        self.apply_auths()
+        
+    def apply_auths(self):
+        for func in self.func_auth_required:
+            if hasattr(self, func) and callable(getattr(self, func)) and not func.startswith('_') :
+                setattr(self, func, self.require_auth(getattr(self, func)))
+        
+    def apply_auth(self, func):
+        return self.require_auth(func)
 
 
 class VersionResource(Resource):
@@ -179,23 +201,14 @@ class SystemEventResource(Resource):
             "message": f"Event {event_id} deleted"
         }), 204
 
-class SystemUserResource(Resource):
-    """
-    A Resource utilizing dynamically attached authentication decorators.
-    """
+class SystemUserResource(AuthResource):
+    
+    func_auth_required = ('get', 'post', 'put', 'delete')
+    
     def __init__(self, require_auth: Callable, app, db):
+        super().__init__(require_auth, app, db)
         from repositories.user_repository import UserRepository
-        
-        self.app = app
-        self.db = db
-        self.require_auth = require_auth
         self.repo = UserRepository(app=self.app, db=self.db)
-
-        # Dynamically attach the authentication decorator to all methods
-        self.get = self.require_auth(self.get)
-        self.post = self.require_auth(self.post)
-        self.put = self.require_auth(self.put)
-        self.delete = self.require_auth(self.delete)
 
     def get(self, user_id: Optional[str] = None):
         if user_id:
