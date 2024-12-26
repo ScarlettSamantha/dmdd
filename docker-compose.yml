@@ -40,7 +40,7 @@ services:
     container_name: dmdd-core
     volumes:
       - ./core:/app
-      - ${PWD}/.env:/app/.env:ro
+      - .env:/app/.env:ro
     networks:
       - dmdd-internal-network # Internal only
       - dmdd-public-network # Accessible externally
