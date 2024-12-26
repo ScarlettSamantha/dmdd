@@ -12,6 +12,8 @@ class User(BaseModel):
     User model with fields typically required for a backend application.
     """
     __tablename__ = 'users'
+    serialize_head_only = ('id', 'username', 'email', 'is_active', 'is_admin')
+    serialize_only = ('id', 'username', 'email', 'first_name', 'last_name', 'is_active', 'is_admin', 'last_login', 'last_ip', 'user_agent', 'avatar')
 
     username: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)

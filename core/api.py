@@ -202,13 +202,13 @@ class SystemUserResource(Resource):
             user = self.repo.get_by_id(user_id)
             return jsonify({
                 "status": "success",
-                "data": {"id": user_id, "name": user.username}
+                "data": user.api_response(full=True)
             })
         else:
             users = self.repo.get_all()
             return jsonify({
                 "status": "success",
-                "data": {"users": [{"id": user.id, "name": user.username} for user in users]}
+                "data": {"users": [user.api_response(full=False) for user in users]}
             })
 
     def post(self):
