@@ -35,3 +35,13 @@ class UserRepository(BaseRepository[User]):
     def unblock_user(self, user: User) -> None:
         user.is_active = True
         self.db.session.commit()
+        
+    @execute_with_context
+    def search_by_api_key(self, api_key: str, is_active: bool = True, is_admin: bool = False, is_confirmed: bool = True) -> Optional[User]:
+        query = self.db.session.query(User) \
+            .filter_by(api_key=api_key) \
+            .filter_by(is_active=is_active) \
+            .filter_by(is_confirmed=is_confirmed)
+        if is_admin:
+            query = query.filter_by(is_admin=True)
+        return query.first() if query.count() > 0 else None
