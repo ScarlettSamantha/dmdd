@@ -12,7 +12,11 @@ class UserRepository(BaseRepository[User]):
     @execute_with_context
     def find_by_email(self, email: str) -> Optional[User]:
         self.db.session.query(User).all()
-        return self.session.query(self.model).filter_by(email=email).first()
+        return self.db.session.query(self.model).filter_by(email=email).first()
+    
+    @execute_with_context
+    def find_by_username(self, username: str) -> Optional[User]:
+        return self.db.session.query(self.model).filter_by(username=username).first()
     
     @execute_with_context
     def register_user(self, username: str, email: str, password: str, active_user: bool = False, confirm_user: bool = False, admin_user: bool = False, generate_api_key: bool = False,**kwargs) -> User:
@@ -27,13 +31,27 @@ class UserRepository(BaseRepository[User]):
         return user
     
     @execute_with_context
-    def block_user(self, user: User) -> None:
-        user.is_active = False
+    def activate_user(self, user: User) -> None:
+        user.is_active = True
+        self.db.session.add(user)
         self.db.session.commit()
         
     @execute_with_context
-    def unblock_user(self, user: User) -> None:
-        user.is_active = True
+    def deactivate_user(self, user: User) -> None:
+        user.is_active = False
+        self.db.session.add(user)
+        self.db.session.commit()
+        
+    @execute_with_context
+    def confirm_user(self, user: User) -> None:
+        user.is_confirmed = True
+        self.db.session.add(user)
+        self.db.session.commit()
+        
+    @execute_with_context
+    def unconfirm_user(self, user: User) -> None:
+        user.is_confirmed = False
+        self.db.session.add(user)
         self.db.session.commit()
         
     @execute_with_context
