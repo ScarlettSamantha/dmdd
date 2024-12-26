@@ -1,9 +1,11 @@
 from typing import TypeVar, Generic, List, Optional, Type, Callable
 from sqlalchemy import func as sql_func
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.exc import SQLAlchemyError
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 
-T = TypeVar("T")  # Generic type for models
+T = TypeVar("T", bound=DeclarativeMeta)  # Generic type for models
 
 def execute_with_context(func: Callable) -> Callable:
     """
@@ -15,11 +17,10 @@ def execute_with_context(func: Callable) -> Callable:
     return wrapper
 
 class BaseRepository(Generic[T]):
-    def __init__(self, app, db, model: Type[T]):
-        self.db = db
-        self.model = model
-        self.app = app
-        print(self.model)
+    def __init__(self, app: Flask, db: SQLAlchemy, model: Type[T]):
+        self.db: SQLAlchemy = db
+        self.app: Flask = app
+        self.model: Type[T] = model
 
     @execute_with_context
     def get_all(self) -> List[T]:
