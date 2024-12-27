@@ -189,7 +189,7 @@ class CoreDaemon:
         @click.argument("email")
         @click.argument("password")
         @self.app.cli.command("user-create")
-        def user_create(username, email, password):
+        def user_create(username: str, email: str, password: str):
             """Create a new user with the provided username, email, and password."""
             from repositories.user_repository import UserRepository
             user_repo = UserRepository(self.db, self.app)
@@ -198,7 +198,7 @@ class CoreDaemon:
             
         @click.argument("username")
         @self.app.cli.command("user-set-password")
-        def user_set_password(username):
+        def user_set_password(username: str):
             """Set the password for a user."""
             from repositories.user_repository import UserRepository
             user_repo = UserRepository(self.db, self.app)
@@ -213,7 +213,7 @@ class CoreDaemon:
             
         @click.argument("username")
         @self.app.cli.command("user-activate")
-        def user_activate(username):
+        def user_activate(username: str):
             """Activate a user account."""
             from repositories.user_repository import UserRepository
             user_repo = UserRepository(self.db, self.app)
@@ -227,7 +227,7 @@ class CoreDaemon:
                 
         @click.argument("username")
         @self.app.cli.command("user-confirm")
-        def user_confirm(username):
+        def user_confirm(username: str):
             """Confirm a user account."""
             from repositories.user_repository import UserRepository
             user_repo = UserRepository(self.db, self.app)
