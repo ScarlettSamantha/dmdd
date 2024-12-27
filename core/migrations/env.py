@@ -6,6 +6,9 @@ from sqlalchemy import pool
 from alembic import context
 from models.model import BaseModel as Base
 from models.user import User 
+from models.library import Library
+from models.library_item import LibraryItem
+from models.thumbnail import Thumbnail
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,6 +32,7 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+config.set_main_option("sqlalchemy.url", "sqlite:////app/instance/./db.sqlite3")
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
