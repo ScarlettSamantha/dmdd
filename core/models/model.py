@@ -35,8 +35,10 @@ class BaseModel(base, SerializerMixin):
             nullable=False,
         )
 
+    
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def save(self, db) -> None:
         """
@@ -55,6 +57,23 @@ class BaseModel(base, SerializerMixin):
         """
         db.session.delete(self)
         db.session.commit()
+
+    def is_deleted(self) -> bool:
+        """
+        Check if the record has been soft-deleted.
+
+        :return: True if the record has been soft-deleted, False otherwise.
+        """
+        return self.deleted_at is not None
+    
+    def soft_delete(self, db) -> None:
+        """
+        Soft-delete the current instance from the database.
+
+        :param db: The SQLAlchemy instance from the main application.
+        """
+        self.deleted_at = datetime.utcnow()
+        self.save(db)
 
     @classmethod
     def find_by_id(cls: Type[T], record_id: UUID | str, db) -> T | None:
