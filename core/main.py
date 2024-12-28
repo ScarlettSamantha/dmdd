@@ -5,6 +5,8 @@ import click
 import signal
 import logging
 import asyncio
+import pkgutil
+import importlib
 from flask import Flask
 from flask_restful import Api
 from dotenv import load_dotenv
@@ -19,6 +21,7 @@ from api import APIHandler
 from system import System
 
 from models.model import BaseModel
+
 
 # Initialize colorama for colored CLI output
 init(autoreset=True)  # Initialize colorama
@@ -273,6 +276,58 @@ class CoreDaemon:
                 alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
                 command.downgrade(alembic_cfg, "-1")
                 self.logger.info("Database downgraded successfully.")
+                
+        @self.app.cli.command("db-seed")
+        @click.option("--models", "-m", multiple=True, help="Models to seed, use file level import names not full paths.", default=None)
+        @click.option("--all", "-a", is_flag=True, help="Seed all models.", default=False)
+        @click.option("--stop-on-error", "-s", is_flag=True, help="Stop seeding on first error.", default=False)
+        def db_seed(models: Optional[str] = None, all: bool = False, stop_on_error: bool = False) -> None:
+            """Seed the database with initial data."""
+            models_to_seed = []
+            package = importlib.import_module('models')
+
+            if not models and all:
+                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
+                    try:
+                        module = importlib.import_module(f'models.{module_name}')
+                        for attr_name in dir(module):
+                            attr = getattr(module, attr_name)
+                            if isinstance(attr, type) and issubclass(attr, BaseModel) and attr is not BaseModel and getattr(attr, "__enable_seeding__", False) is not False:
+                                models_to_seed.append(attr)
+                    except Exception as e:
+                        self.logger.error(f"Failed to import module {module_name}: {e}")
+                        if stop_on_error:
+                            return
+                        continue
+            elif models:
+                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
+                    try:
+                        module = importlib.import_module(f'models.{module_name}')
+                        for attr_name in dir(module):
+                            attr = getattr(module, attr_name)
+                            if isinstance(attr, type) and issubclass(attr, BaseModel) and attr is not BaseModel and attr.__name__.lower() in models:
+                                models_to_seed.append(attr)
+                    except Exception as e:
+                        self.logger.error(f"Failed to import module {module_name}: {e}")
+                        if stop_on_error:
+                            return
+                        continue
+            else:
+                self.logger.error("No models specified for seeding, use --all or --models and specify which models you want to seed.")
+                return
+            
+            for model in models_to_seed:
+                with self.app.app_context():
+                    instances = model.seed()
+                    if instances:
+                        for instance in instances:
+                            self.db.session.add(instance)
+                            self.logger.info(f"Database seeded with {model.__name__} {instance} successfully.")
+                        self.db.session.commit()
+                        self.logger.info(f"Database seeded with {model.__name__} successfully.")
+                    else:
+                        self.logger.error(f"Failed to seed database with {model.__name__} or it has no seed rules, disable seeding on model with __disable_seeding__ = True.")
+            self.logger.info("Database seeded successfully.")
 
 # Entry point for the core daemon and docker container
 if __name__ == "__main__":
