@@ -92,19 +92,19 @@ class System:
                     logger=self.logger,
                     db=self.db
                 )
-                self.add_task(task_instance)
+                self.add_task(task_instance, first_call=True)
                 self.logger.info(f"Task {task_instance.name} from {folder_name} registered successfully.")
             except Exception as e:
                 self.logger.error(f"Failed to instantiate task {folder_name}: {e}")
 
-    def add_task(self, task: Task) -> None:
+    def add_task(self, task: Task, first_call: bool = False) -> None:
         """Add a task to the system."""
-        if hasattr(task, "first_call") and callable(getattr(task, "first_call")):
-            self.logger.info(f"Executing first call for task {task.name}.")
-            try:
-                task.first_call()  # Call the first_call method
-            except Exception as e:
-                self.logger.error(f"Task {task.name} first_call failed with error: {e}")
+        try:
+            if first_call and hasattr(task, "first_call") and callable(getattr(task, "first_call")):
+                self.logger.info(f"Executing first call for task {task.name}.")
+                task.first_call()  # This is a onload task
+        except Exception as e:
+            self.logger.error(f"Task {task.name} first_call failed with error: {e}")
 
         if task.next_run not in self.tasks:
             self.tasks[task.next_run] = []
@@ -121,8 +121,8 @@ class System:
                 for task in self.tasks[run_time]:
                     if task.is_blocking:
                         self.logger.info(f"Blocking task detected: {task.name}. Waiting for running tasks to finish.")
-                        await self._wait_for_running_tasks()
                         self.logger.info(f"Executing blocking task: {task.name}.")
+                        await self._wait_for_running_tasks()
                         try:
                             await task.tick()
                         except Exception as e:
