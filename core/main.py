@@ -5,8 +5,6 @@ import click
 import signal
 import logging
 import asyncio
-import pkgutil
-import importlib
 from flask import Flask
 from flask_restful import Api
 from dotenv import load_dotenv
@@ -184,6 +182,78 @@ class CoreDaemon:
 
         self.logger.info("CoreDaemon has shut down.")
         sys.exit(0)
+        
+    def seed_database(
+        self,
+        app: Flask,
+        db: SQLAlchemy,
+        logger: logging.Logger,
+        models: Optional[list[str]] = None,
+        seed_all: bool = False,
+        stop_on_error: bool = False
+    ) -> None:
+        """Seed the database with initial data."""
+        import importlib
+        import pkgutil
+
+        def get_models_to_seed():
+            """Retrieve models to seed based on the input."""
+            if seed_all:
+                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
+                    yield from load_models(module_name)
+            elif models:
+                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
+                    yield from load_models(
+                        module_name,
+                        filter_models=lambda model: model.__name__.lower() in [m.lower() for m in models],
+                    )
+
+        def load_models(module_name: str, filter_models=None):
+            """Load models from a given module, applying an optional filter."""
+            try:
+                module = importlib.import_module(f"models.{module_name}")
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, BaseModel)
+                        and attr is not BaseModel
+                        and getattr(attr, "__enable_seeding__", True)
+                    ):
+                        if filter_models is None or filter_models(attr):
+                            yield attr
+            except Exception as e:
+                logger.error(f"Failed to import module {module_name}: {e}")
+                if stop_on_error:
+                    raise
+
+        # Initialize models_to_seed
+        package = importlib.import_module("models")
+        models_to_seed = list(get_models_to_seed())
+
+        if not models_to_seed:
+            logger.error(
+                "No models specified or found for seeding. Use --all or specify models with --models."
+            )
+            return
+
+        # Seed the models
+        for model in models_to_seed:
+            with app.app_context():
+                try:
+                    instances = model.seed()
+                    if instances:
+                        db.session.bulk_save_objects(instances)
+                        db.session.commit()
+                        logger.info(f"Seeded {len(instances)} instances of {model.__name__}.")
+                    else:
+                        logger.warning(f"No data to seed for {model.__name__}.")
+                except Exception as e:
+                    logger.error(f"Error seeding {model.__name__}: {e}")
+                    if stop_on_error:
+                        break
+
+        logger.info("Database seeding process completed.")
 
     def register_cli_commands(self) -> None:
         """Register custom CLI commands for flask-migrate."""
@@ -278,57 +348,15 @@ class CoreDaemon:
                 self.logger.info("Database downgraded successfully.")
                 
         @self.app.cli.command("db-seed")
-        @click.option("--models", "-m", multiple=True, help="Models to seed, use file level import names not full paths.", default=None)
+        @click.option("--models", "-m", multiple=True, help="Models to seed, use file-level import names not full paths.")
         @click.option("--all", "-a", is_flag=True, help="Seed all models.", default=False)
         @click.option("--stop-on-error", "-s", is_flag=True, help="Stop seeding on first error.", default=False)
-        def db_seed(models: Optional[str] = None, all: bool = False, stop_on_error: bool = False) -> None:
+        def db_seed(models: list[str], all: bool, stop_on_error: bool) -> None:
             """Seed the database with initial data."""
-            models_to_seed = []
-            package = importlib.import_module('models')
-
-            if not models and all:
-                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
-                    try:
-                        module = importlib.import_module(f'models.{module_name}')
-                        for attr_name in dir(module):
-                            attr = getattr(module, attr_name)
-                            if isinstance(attr, type) and issubclass(attr, BaseModel) and attr is not BaseModel and getattr(attr, "__enable_seeding__", False) is not False:
-                                models_to_seed.append(attr)
-                    except Exception as e:
-                        self.logger.error(f"Failed to import module {module_name}: {e}")
-                        if stop_on_error:
-                            return
-                        continue
-            elif models:
-                for _, module_name, _ in pkgutil.iter_modules(package.__path__):
-                    try:
-                        module = importlib.import_module(f'models.{module_name}')
-                        for attr_name in dir(module):
-                            attr = getattr(module, attr_name)
-                            if isinstance(attr, type) and issubclass(attr, BaseModel) and attr is not BaseModel and attr.__name__.lower() in models:
-                                models_to_seed.append(attr)
-                    except Exception as e:
-                        self.logger.error(f"Failed to import module {module_name}: {e}")
-                        if stop_on_error:
-                            return
-                        continue
-            else:
-                self.logger.error("No models specified for seeding, use --all or --models and specify which models you want to seed.")
-                return
-            
-            for model in models_to_seed:
-                with self.app.app_context():
-                    instances = model.seed()
-                    if instances:
-                        for instance in instances:
-                            self.db.session.add(instance)
-                            self.logger.info(f"Database seeded with {model.__name__} {instance} successfully.")
-                        self.db.session.commit()
-                        self.logger.info(f"Database seeded with {model.__name__} successfully.")
-                    else:
-                        self.logger.error(f"Failed to seed database with {model.__name__} or it has no seed rules, disable seeding on model with __disable_seeding__ = True.")
-            self.logger.info("Database seeded successfully.")
-
+            self.seed_database(
+                app=self.app, db=self.db, logger=self.logger, models=models, seed_all=all, stop_on_error=stop_on_error
+            )
+        
 # Entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
