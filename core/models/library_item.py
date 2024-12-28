@@ -1,11 +1,7 @@
 from sqlalchemy import String, Boolean, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import TYPE_CHECKING
-
-
 from .model import BaseModel
-from .user import User
-from .library import Library
 
 if TYPE_CHECKING:
     from .user import User

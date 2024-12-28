@@ -1,9 +1,10 @@
 from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import ForwardRef
-
+from typing import ForwardRef, TYPE_CHECKING
 from .model import BaseModel
-from .user import User
+
+if TYPE_CHECKING:
+    from .user import User
 
 class Library(BaseModel):
     """

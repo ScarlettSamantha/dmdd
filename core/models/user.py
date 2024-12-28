@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from .library_item import LibraryItem
     from .thumbnail import Thumbnail
 
+
 class User(BaseModel):
     __tablename__ = 'users'
     __enable_seeding__ = True
@@ -40,8 +41,12 @@ class User(BaseModel):
     api_key: Mapped[str] = mapped_column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     avatar: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    # Relationships using forward references
-    libraries: Mapped[List['Library']] = relationship("Library", back_populates="owner", lazy="joined")
+    from .library import Library
+    from .library_item import LibraryItem
+    from .thumbnail import Thumbnail
+
+    # Relationships defined with forward references
+    libraries: Mapped[List["Library"]] = relationship("Library", back_populates="owner", lazy="joined")
     libraryItems: Mapped[List['LibraryItem']] = relationship("LibraryItem", back_populates="owner", lazy="joined")
     libraryItemsThumbnails: Mapped[List['Thumbnail']] = relationship("Thumbnail", back_populates="owner", lazy="joined")
 
