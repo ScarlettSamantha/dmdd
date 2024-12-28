@@ -1,32 +1,101 @@
+
+import os
+import inspect
 import logging
 import asyncio
-import sqlalchemy
-import os
-from datetime import datetime, timedelta
-from typing import Dict, List, ForwardRef, Self
-from tasks.task import Task
-from tasks.example.main import ExampleTask
-import setproctitle
 import threading
-import types
-from models.user import User
+import sqlalchemy
+import setproctitle
+import importlib.util
+from datetime import datetime, timedelta
+from typing import Dict, List, ForwardRef, Self, Type
 
+from tasks.task import Task
 
 class System:
-    def __init__(self, app, logger: logging.Logger, db: sqlalchemy.engine.base.Engine) -> None:
-        setproctitle.setproctitle("CoreDaemon-System")
+    INIT_FILE_NAME = "__init__.py"
+    TASK_CLASS_VARIABLE = "__TASK_CLASS__"
+    DEFAULT_RUN_INTERVAL_SECONDS = 10
+    TASK_THREAD_NAME_PREFIX = "Task-"
+    SLEEP_INTERVAL_SECONDS = 1
+    STOP_WAIT_INTERVAL_SECONDS = 0.5
+    DEFAULT_TASKS_FOLDER = "tasks"
+    PROCESS_NAME = "CoreDaemon-System"
+    LOGGER_CHILD = "System"
+
+    def __init__(self, app, logger: logging.Logger, db: sqlalchemy.engine.base.Engine, tasks_folder: str = None) -> None:
+        setproctitle.setproctitle(self.PROCESS_NAME)
+        
+        if tasks_folder is None:
+            tasks_folder = self.DEFAULT_TASKS_FOLDER
+            
         self.app = app
-        self.logger: logging.Logger = logger.getChild("System")
+        self.logger: logging.Logger = logger.getChild(self.LOGGER_CHILD)
         self.db: sqlalchemy.engine.base.Engine = db
- 
+        self.tasks_folder: str = tasks_folder
+
         self.tasks: Dict[datetime, List[Task]] = {}
         self.running_tasks: List[asyncio.Task] = []
 
         self.__register_tasks()
 
     def __register_tasks(self: Self) -> None:
-        task = ExampleTask("ExampleTask", timedelta(seconds=10), logger=self.logger, db=self.db, app=self.app)
-        self.add_task(task)
+        self.discover_tasks()
+
+    def discover_tasks(self) -> None:
+        """Discover all tasks in the tasks folder."""
+        tasks_path: str = os.path.join(os.path.dirname(__file__), self.tasks_folder)
+        
+        for folder_name in os.listdir(tasks_path):
+            folder_path: str = os.path.join(tasks_path, folder_name)
+            
+            if not os.path.isdir(folder_path):
+                continue
+            
+            if folder_name.startswith("__") or folder_name.startswith("."):
+                continue
+            
+            if folder_name.lower() == "__pycache__":
+                continue
+
+            init_file: str = os.path.join(folder_path, self.INIT_FILE_NAME)
+            if not os.path.exists(init_file):
+                self.logger.warning(f"Skipping {folder_name}: No {self.INIT_FILE_NAME} found.")
+                continue
+
+            spec: importlib.machinery.ModuleSpec = importlib.util.spec_from_file_location(
+                f"tasks.{folder_name}", init_file
+            )
+            module = importlib.util.module_from_spec(spec)
+
+            try:
+                spec.loader.exec_module(module)  # Load the module dynamically
+            except Exception as e:
+                import traceback
+                self.logger.error(f"Failed to load module {folder_name}: {traceback.format_exc()}")
+                continue
+
+            if not hasattr(module, self.TASK_CLASS_VARIABLE):
+                self.logger.warning(f"Skipping {folder_name}: No {self.TASK_CLASS_VARIABLE} variable found.")
+                continue
+
+            task_class: Type = getattr(module, self.TASK_CLASS_VARIABLE)
+            if not inspect.isclass(task_class) or not issubclass(task_class, Task):
+                self.logger.warning(f"Skipping {folder_name}: {self.TASK_CLASS_VARIABLE} is not a subclass of Task.")
+                continue
+
+            try:
+                task_instance: Task = task_class(
+                    name=folder_name,
+                    run_interval=timedelta(seconds=self.DEFAULT_RUN_INTERVAL_SECONDS),
+                    app=self.app,
+                    logger=self.logger,
+                    db=self.db
+                )
+                self.add_task(task_instance)
+                self.logger.info(f"Task {task_instance.name} from {folder_name} registered successfully.")
+            except Exception as e:
+                self.logger.error(f"Failed to instantiate task {folder_name}: {e}")
 
     def add_task(self, task: Task) -> None:
         """Add a task to the system."""
@@ -76,7 +145,7 @@ class System:
 
                 del self.tasks[run_time]
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(self.SLEEP_INTERVAL_SECONDS)
 
     async def stop(self) -> None:
         """Stop the system and notify all tasks."""
@@ -98,11 +167,11 @@ class System:
         """Wait for all running tasks to finish."""
         while self.running_tasks:
             self.logger.info(f"Waiting for {len(self.running_tasks)} running tasks to finish.")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(self.STOP_WAIT_INTERVAL_SECONDS)
 
     def _run_task_sync(self, task: Task) -> None:
         """Run a synchronous task."""
-        threading.current_thread().name = f"Task-{task.name}"
+        threading.current_thread().name = f"{self.TASK_THREAD_NAME_PREFIX}{task.name}"
         loop = asyncio.get_event_loop()
         loop.run_until_complete(task.tick())
 
