@@ -8,15 +8,13 @@ from typing import TYPE_CHECKING, Optional, List, Tuple
 
 from .model import BaseModel
 
+# this is used to avoid circular imports but still have type hints
 if TYPE_CHECKING:
     from .library import Library
     from .library_item import LibraryItem
     from .thumbnail import Thumbnail
 
 class User(BaseModel):
-    """
-    User model with fields typically required for a backend application.
-    """
     __tablename__ = 'users'
     __enable_seeding__ = True
     
