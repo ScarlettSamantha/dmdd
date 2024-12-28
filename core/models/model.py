@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Type, TypeVar
+from typing import Type, TypeVar, List, Optional
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import declared_attr, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
@@ -17,6 +17,8 @@ class BaseModel(base, SerializerMixin):
     Provides common columns and methods for migrations and utilities.
     """
     __abstract__ = True
+    __enable_seeding__ = False
+    
     serialize_head_only = tuple()
     serialize_head_rules = tuple()
     serialize_only = tuple()
@@ -125,3 +127,11 @@ class BaseModel(base, SerializerMixin):
             return self.to_dict(rules=self.serialize_rules, only=self.serialize_only)
         else: 
             return self.to_dict(rules=self.serialize_head_rules, only=self.serialize_head_only)
+        
+        
+    @classmethod
+    def seed(cls) -> Optional[List[T]]:
+        """
+        Seed the database with initial data.
+        """
+        raise NotImplementedError("Seed method must be implemented in the model.")
