@@ -19,6 +19,9 @@ class User(BaseModel):
     """
     __tablename__ = 'users'
     __enable_seeding__ = True
+    
+    __default_hash_algorithm__ = 'sha3_512'
+    __hash_algorithm__ = 'sha3_512'
 
     serialize_head_only = ('id', 'username', 'email', 'is_active', 'is_admin')
     serialize_only = ('id', 'username', 'email', 'first_name', 'last_name', 'is_active', 'is_admin', 
@@ -51,8 +54,8 @@ class User(BaseModel):
         """
         Set the user's password hash with a user-specific salt.
         """
-        self.password_salt = self._generate_salt()
-        self.password_hash = self._hash_password(password, self.password_salt)
+        self.password_salt: str= self._generate_salt()
+        self.password_hash: str = self._hash_password(password, self.password_salt)
 
     def check_password(self, password: str) -> bool:
         """
@@ -71,7 +74,7 @@ class User(BaseModel):
         Generate a new password for the user.
         """
         if password is None:
-            password = self._random_password()
+            password: str = self._random_password()
         self.password_hash, self.password_salt = self._generate_password(password=password)
 
     @staticmethod
@@ -86,8 +89,12 @@ class User(BaseModel):
         """
         Hash the given password using SHA-3 with a user-specific salt.
         """
-        salted_password = f"{salt}{password}".encode()
-        return hashlib.sha3_512(salted_password).hexdigest()
+        salted_password: str = f"{salt}{password}".encode()
+        if not hasattr(hashlib, User.__hash_algorithm__):
+            User.__hash_algorithm__ = User.__default_hash_algorithm__
+        hash_func = getattr(hashlib, User.__hash_algorithm__, User.__default_hash_algorithm__)
+        hash_str: str = hash_func(salted_password).hexdigest()
+        return hash_str
 
     @staticmethod
     def _verify_password(password: str, hashed_password: str, salt: str) -> bool:
@@ -108,8 +115,8 @@ class User(BaseModel):
         """
         Generate a new password.
         """
-        _salt = cls._generate_salt()
-        _hash = cls._hash_password(password, _salt)
+        _salt: str = cls._generate_salt()
+        _hash: str = cls._hash_password(password, _salt)
         return _hash, _salt
     
     @classmethod
