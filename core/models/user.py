@@ -1,6 +1,6 @@
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship, registry
+from sqlalchemy import String, DateTime, Boolean
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 import uuid
 import hashlib
 import os
