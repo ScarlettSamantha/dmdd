@@ -51,7 +51,7 @@ class User(BaseModel):
     libraryItemsThumbnails: Mapped[List['Thumbnail']] = relationship("Thumbnail", back_populates="owner", lazy="joined")
 
     def __repr__(self) -> str:
-        return f"<User(username={self.username}, email={self.email}, is_active={self.is_active}, is_admin={self.is_admin})>"
+        return f"<User(username={self.username}, id={self.id}, email={self.email}, is_active={self.is_active}, is_admin={self.is_admin})>"
 
     def set_password(self, password: str) -> None:
         """
