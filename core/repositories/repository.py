@@ -1,12 +1,12 @@
 from typing import TypeVar, Generic, List, Optional, Type, Callable
 from sqlalchemy import func as sql_func
-from sqlalchemy.ext.declarative import DeclarativeMeta
+from models.model import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from uuid import UUID
 
-T = TypeVar("T", bound=DeclarativeMeta)  # Generic type for models
+T = TypeVar("T", bound=BaseModel)  # Generic type for models
 
 def execute_with_context(func: Callable) -> Callable:
     """
