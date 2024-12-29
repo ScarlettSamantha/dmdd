@@ -18,11 +18,13 @@ class BaseModel(base, SerializerMixin):
     """
     __abstract__ = True
     __enable_seeding__ = False
+    __ALLOWED_API_FIELDS__ = tuple()
     
     serialize_head_only = tuple()
     serialize_head_rules = tuple()
     serialize_only = tuple()
     serialize_rules = tuple()
+    
 
     @declared_attr
     def id(cls) -> Mapped[str]:
@@ -76,6 +78,15 @@ class BaseModel(base, SerializerMixin):
         """
         self.deleted_at = datetime.utcnow()
         self.save(db)
+        
+    @classmethod
+    def get_allowed_fields(cls) -> tuple:
+        """
+        Get the allowed fields for API responses.
+
+        :return: Tuple of allowed fields.
+        """
+        return cls.__ALLOWED_API_FIELDS__
 
     @classmethod
     def find_by_id(cls: Type[T], record_id: UUID | str, db) -> T | None:

@@ -15,7 +15,7 @@ from logging.handlers import RotatingFileHandler
 from alembic import command, config as alembic_config
 
 # application imports
-from api import APIHandler
+from api import APIHandler, InputValidator
 from system import System
 
 from models.model import BaseModel
@@ -61,7 +61,7 @@ class CoreDaemon:
         self.setup_database()
         self.setup_signal_handling()
 
-        self.api_handler: APIHandler = APIHandler(self.app, self.db)
+        self.api_handler: APIHandler = APIHandler(self.app, self.db, InputValidator)
         self.register_cli_commands()
 
         self.system = System(self.app, self.logger, self.db)
