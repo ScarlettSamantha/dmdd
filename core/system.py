@@ -4,13 +4,15 @@ import logging
 import asyncio
 import threading
 from flask_sqlalchemy import SQLAlchemy
-import sqlalchemy
 import setproctitle
 import importlib.util
 from datetime import datetime, timedelta
-from typing import Dict, List, ForwardRef, Self, Type, Optional
+from typing import Dict, List, Self, Type, Optional, TYPE_CHECKING
 
 from tasks.task import Task
+
+if TYPE_CHECKING:
+    from main import CoreDaemon  # noqa: F401
 
 
 class System:
@@ -135,7 +137,7 @@ class System:
         self.tasks[task.next_run].append(task)
         self.logger.info(f"Task {task.name} registered to run at {task.next_run}.")
 
-    async def tick(self, core_daemon: ForwardRef("CoreDaemon")) -> None:
+    async def tick(self, core_daemon: "CoreDaemon") -> None:
         """Entry point for periodic tasks."""
         while core_daemon.running:
             now = datetime.now()
