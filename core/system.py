@@ -1,16 +1,17 @@
-
 import os
 import inspect
 import logging
 import asyncio
 import threading
+from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy
 import setproctitle
 import importlib.util
 from datetime import datetime, timedelta
-from typing import Dict, List, ForwardRef, Self, Type
+from typing import Dict, List, ForwardRef, Self, Type, Optional
 
 from tasks.task import Task
+
 
 class System:
     INIT_FILE_NAME = "__init__.py"
@@ -23,15 +24,21 @@ class System:
     PROCESS_NAME = "CoreDaemon-System"
     LOGGER_CHILD = "System"
 
-    def __init__(self, app, logger: logging.Logger, db: sqlalchemy.engine.base.Engine, tasks_folder: str = None) -> None:
+    def __init__(
+        self,
+        app,
+        logger: logging.Logger,
+        db: SQLAlchemy,
+        tasks_folder: Optional[str] = None,
+    ) -> None:
         setproctitle.setproctitle(self.PROCESS_NAME)
-        
+
         if tasks_folder is None:
             tasks_folder = self.DEFAULT_TASKS_FOLDER
-            
+
         self.app = app
         self.logger: logging.Logger = logger.getChild(self.LOGGER_CHILD)
-        self.db: sqlalchemy.engine.base.Engine = db
+        self.db: SQLAlchemy = db
         self.tasks_folder: str = tasks_folder
 
         self.tasks: Dict[datetime, List[Task]] = {}
@@ -45,43 +52,54 @@ class System:
     def discover_tasks(self) -> None:
         """Discover all tasks in the tasks folder."""
         tasks_path: str = os.path.join(os.path.dirname(__file__), self.tasks_folder)
-        
+
         for folder_name in os.listdir(tasks_path):
             folder_path: str = os.path.join(tasks_path, folder_name)
-            
+
             if not os.path.isdir(folder_path):
                 continue
-            
+
             if folder_name.startswith("__") or folder_name.startswith("."):
                 continue
-            
+
             if folder_name.lower() == "__pycache__":
                 continue
 
             init_file: str = os.path.join(folder_path, self.INIT_FILE_NAME)
             if not os.path.exists(init_file):
-                self.logger.warning(f"Skipping {folder_name}: No {self.INIT_FILE_NAME} found.")
+                self.logger.warning(
+                    f"Skipping {folder_name}: No {self.INIT_FILE_NAME} found."
+                )
                 continue
 
-            spec: importlib.machinery.ModuleSpec = importlib.util.spec_from_file_location(
-                f"tasks.{folder_name}", init_file
+            spec: importlib.machinery.ModuleSpec = (  # type: ignore
+                importlib.util.spec_from_file_location(
+                    f"tasks.{folder_name}", init_file
+                )
             )
             module = importlib.util.module_from_spec(spec)
 
             try:
                 spec.loader.exec_module(module)  # Load the module dynamically
-            except Exception as e:
+            except Exception as _:
                 import traceback
-                self.logger.error(f"Failed to load module {folder_name}: {traceback.format_exc()}")
+
+                self.logger.error(
+                    f"Failed to load module {folder_name}: {traceback.format_exc()}"
+                )
                 continue
 
             if not hasattr(module, self.TASK_CLASS_VARIABLE):
-                self.logger.warning(f"Skipping {folder_name}: No {self.TASK_CLASS_VARIABLE} variable found.")
+                self.logger.warning(
+                    f"Skipping {folder_name}: No {self.TASK_CLASS_VARIABLE} variable found."
+                )
                 continue
 
             task_class: Type = getattr(module, self.TASK_CLASS_VARIABLE)
             if not inspect.isclass(task_class) or not issubclass(task_class, Task):
-                self.logger.warning(f"Skipping {folder_name}: {self.TASK_CLASS_VARIABLE} is not a subclass of Task.")
+                self.logger.warning(
+                    f"Skipping {folder_name}: {self.TASK_CLASS_VARIABLE} is not a subclass of Task."
+                )
                 continue
 
             try:
@@ -90,17 +108,23 @@ class System:
                     run_interval=timedelta(seconds=self.DEFAULT_RUN_INTERVAL_SECONDS),
                     app=self.app,
                     logger=self.logger,
-                    db=self.db
+                    db=self.db,
                 )
                 self.add_task(task_instance, first_call=True)
-                self.logger.info(f"Task {task_instance.name} from {folder_name} registered successfully.")
+                self.logger.info(
+                    f"Task {task_instance.name} from {folder_name} registered successfully."
+                )
             except Exception as e:
                 self.logger.error(f"Failed to instantiate task {folder_name}: {e}")
 
     def add_task(self, task: Task, first_call: bool = False) -> None:
         """Add a task to the system."""
         try:
-            if first_call and hasattr(task, "first_call") and callable(getattr(task, "first_call")):
+            if (
+                first_call
+                and hasattr(task, "first_call")
+                and callable(getattr(task, "first_call"))
+            ):
                 self.logger.info(f"Executing first call for task {task.name}.")
                 task.first_call()  # This is a onload task
         except Exception as e:
@@ -120,13 +144,17 @@ class System:
             for run_time in tasks_to_run:
                 for task in self.tasks[run_time]:
                     if task.is_blocking:
-                        self.logger.info(f"Blocking task detected: {task.name}. Waiting for running tasks to finish.")
+                        self.logger.info(
+                            f"Blocking task detected: {task.name}. Waiting for running tasks to finish."
+                        )
                         self.logger.info(f"Executing blocking task: {task.name}.")
                         await self._wait_for_running_tasks()
                         try:
                             await task.tick()
                         except Exception as e:
-                            self.logger.error(f"Blocking task {task.name} failed with error: {e}")
+                            self.logger.error(
+                                f"Blocking task {task.name} failed with error: {e}"
+                            )
                         task.update_next_run()
                         self.add_task(task)
                     else:
@@ -139,7 +167,9 @@ class System:
                             else:
                                 self._run_task_sync(task)
                         except Exception as e:
-                            self.logger.error(f"Task {task.name} failed with error: {e}")
+                            self.logger.error(
+                                f"Task {task.name} failed with error: {e}"
+                            )
                         task.update_next_run()
                         self.add_task(task)
 
@@ -150,7 +180,7 @@ class System:
     async def stop(self) -> None:
         """Stop the system and notify all tasks."""
         self.logger.info("Stopping system and notifying all tasks.")
-        
+
         for run_time, task_list in self.tasks.items():
             for task in task_list:
                 if hasattr(task, "stop") and callable(getattr(task, "stop")):
@@ -158,7 +188,9 @@ class System:
                     try:
                         await task.stop()
                     except Exception as e:
-                        self.logger.error(f"Task {task.name} stop failed with error: {e}")
+                        self.logger.error(
+                            f"Task {task.name} stop failed with error: {e}"
+                        )
 
         await self._wait_for_running_tasks()
         self.logger.info("System stopped.")
@@ -166,7 +198,9 @@ class System:
     async def _wait_for_running_tasks(self) -> None:
         """Wait for all running tasks to finish."""
         while self.running_tasks:
-            self.logger.info(f"Waiting for {len(self.running_tasks)} running tasks to finish.")
+            self.logger.info(
+                f"Waiting for {len(self.running_tasks)} running tasks to finish."
+            )
             await asyncio.sleep(self.STOP_WAIT_INTERVAL_SECONDS)
 
     def _run_task_sync(self, task: Task) -> None:
@@ -183,7 +217,7 @@ class System:
     def health_check(self) -> str:
         """Check the health of all tasks and return their status."""
         statuses = []
-        completed_tasks = [task for task in self.running_tasks if task.done()]
+        completed_tasks = [task for task in self.running_tasks if task.done()]  # noqa: F841
         for task_list in self.tasks.values():
             for task in task_list:
                 try:
@@ -194,6 +228,8 @@ class System:
 
         statuses.append(f"Running tasks: {len(self.running_tasks)}")
         for running_task in self.running_tasks:
-            statuses.append(f"Running Task: {running_task.get_name()} State: {'Done' if running_task.done() else 'Running'}")
+            statuses.append(
+                f"Running Task: {running_task.get_name()} State: {'Done' if running_task.done() else 'Running'}"
+            )
 
         return "\n".join(statuses)
