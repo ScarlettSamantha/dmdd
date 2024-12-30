@@ -1,19 +1,16 @@
 # Core stuff imports
 import os
 import sys
-import click
 import signal
 import logging
 import asyncio
 from flask import Flask
-from datetime import datetime
 from flask_restful import Api
 from dotenv import load_dotenv
 from typing import Optional, Any
-from colorama import Fore, Style, init
+from colorama import init
 from flask_sqlalchemy import SQLAlchemy
 from logging.handlers import RotatingFileHandler
-from alembic import command, config as alembic_config
 from cli import ColoredCLIHandler, CLICommands
 
 # application imports
