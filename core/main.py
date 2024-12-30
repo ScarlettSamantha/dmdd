@@ -6,6 +6,7 @@ import signal
 import logging
 import asyncio
 from flask import Flask
+from datetime import datetime
 from flask_restful import Api
 from dotenv import load_dotenv
 from typing import Optional, Any
@@ -24,9 +25,45 @@ from models.model import BaseModel
 # Initialize colorama for colored CLI output
 init(autoreset=True)  # Initialize colorama
 
+
 def ensure_path_exists(path: str) -> None:
     """Ensure a directory exists."""
     os.makedirs(path, exist_ok=True)
+
+
+class ColoredCLIHandler(logging.StreamHandler):
+    """CLI handler that adds colors, emojis, and custom formatting to log messages."""
+
+    LEVEL_COLORS = {
+        logging.DEBUG: (Fore.CYAN, "✈️"),  # Airplane emoji
+        logging.INFO: (Fore.GREEN, "✅"),  # Checkmark emoji
+        logging.WARNING: (Fore.YELLOW, "⚠️"),  # Warning emoji
+        logging.ERROR: (Fore.RED, "❌"),  # Cross Mark emoji
+        logging.CRITICAL: (Fore.MAGENTA, "🔥"),  # Fire emoji
+    }
+
+    def emit(self, record: logging.LogRecord) -> None:
+        color, emoji = self.LEVEL_COLORS.get(record.levelno, (Style.RESET_ALL, ""))
+
+        # Extract the system name from the logger's name
+        system_name = record.name if record.name else "SYSTEM"
+
+        # Format the timestamp manually
+        timestamp = datetime.fromtimestamp(record.created).strftime(
+            "%d-%m %H:%M:%S:%f"
+        )[:-3]
+
+        # Construct the custom log message format
+        formatted_message = (
+            f"[{emoji}|{timestamp}] {color}{system_name}{Style.RESET_ALL}: {record.msg}"
+        )
+
+        # Assign formatted message to the record's message
+        record.msg = formatted_message
+
+        # Call the parent class's emit method
+        super().emit(record)
+
 
 class CoreDaemon:
     app: Flask
@@ -48,13 +85,13 @@ class CoreDaemon:
         self.running = False
         self.shutting_down: bool = False
 
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = self.db_path
-        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        self.app.config["SQLALCHEMY_DATABASE_URI"] = self.db_path
+        self.app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
         self.db = SQLAlchemy(model_class=BaseModel)
         self.db.init_app(self.app)
 
-        self.setup_logging()
+        self.setup_logging(self.log_path)
         self.logger = logging.getLogger("CoreDaemon")
 
         self.logger.info("Initializing CoreDaemon.")
@@ -67,32 +104,22 @@ class CoreDaemon:
         self.system = System(self.app, self.logger, self.db)
         self.echo_configuration()
 
-    def setup_logging(self) -> None:
+    def setup_logging(self, log_path: str) -> None:
         """Set up logging with file and CLI handlers."""
-        ensure_path_exists(os.path.dirname(self.log_path))
+        init(autoreset=True)  # Ensure colorama works in Docker and other environments
 
-        # Create a rotating file handler
-        file_handler = RotatingFileHandler(self.log_path, maxBytes=10 * 1024 * 1024, backupCount=3)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+        file_handler = RotatingFileHandler(
+            log_path, maxBytes=10 * 1024 * 1024, backupCount=3
+        )
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        )
         file_handler.setLevel(logging.DEBUG)
 
-        # Create a CLI handler with colored output
-        class ColoredCLIHandler(logging.StreamHandler):
-            LEVEL_COLORS = {
-                logging.DEBUG: Fore.CYAN,
-                logging.INFO: Fore.GREEN,
-                logging.WARNING: Fore.YELLOW,
-                logging.ERROR: Fore.RED,
-                logging.CRITICAL: Fore.MAGENTA,
-            }
-
-            def emit(self, record: logging.LogRecord) -> None:
-                color = self.LEVEL_COLORS.get(record.levelno, Style.RESET_ALL)
-                record.msg = f"{color}{record.msg}{Style.RESET_ALL}"
-                super().emit(record)
-
         cli_handler = ColoredCLIHandler()
-        cli_handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+        cli_handler.setFormatter(logging.Formatter(""))
         cli_handler.setLevel(logging.DEBUG)
 
         # Configure root logger
@@ -143,7 +170,12 @@ class CoreDaemon:
         task = asyncio.create_task(self.system.tick(self))
 
         try:
-            await asyncio.to_thread(self.app.run, host=os.getenv("FLASK_HOST", "0.0.0.0"), port=int(os.getenv("FLASK_PORT", 5000)), use_reloader=False)
+            await asyncio.to_thread(
+                self.app.run,
+                host=os.getenv("FLASK_HOST", "0.0.0.0"),
+                port=int(os.getenv("FLASK_PORT", 5000)),
+                use_reloader=False,
+            )
         except Exception as e:
             self.logger.error(f"Unexpected error: {e}")
         finally:
@@ -182,7 +214,7 @@ class CoreDaemon:
 
         self.logger.info("CoreDaemon has shut down.")
         sys.exit(0)
-        
+
     def seed_database(
         self,
         app: Flask,
@@ -190,7 +222,7 @@ class CoreDaemon:
         logger: logging.Logger,
         models: Optional[list[str]] = None,
         seed_all: bool = False,
-        stop_on_error: bool = False
+        stop_on_error: bool = False,
     ) -> None:
         """Seed the database with initial data."""
         import importlib
@@ -205,7 +237,8 @@ class CoreDaemon:
                 for _, module_name, _ in pkgutil.iter_modules(package.__path__):
                     yield from load_models(
                         module_name,
-                        filter_models=lambda model: model.__name__.lower() in [m.lower() for m in models],
+                        filter_models=lambda model: model.__name__.lower()
+                        in [m.lower() for m in models],
                     )
 
         def load_models(module_name: str, filter_models=None):
@@ -245,7 +278,9 @@ class CoreDaemon:
                     if instances:
                         db.session.bulk_save_objects(instances)
                         db.session.commit()
-                        logger.info(f"Seeded {len(instances)} instances of {model.__name__}.")
+                        logger.info(
+                            f"Seeded {len(instances)} instances of {model.__name__}."
+                        )
                     else:
                         logger.warning(f"No data to seed for {model.__name__}.")
                 except Exception as e:
@@ -257,7 +292,7 @@ class CoreDaemon:
 
     def register_cli_commands(self) -> None:
         """Register custom CLI commands for flask-migrate."""
-            
+
         @click.argument("username")
         @click.argument("email")
         @click.argument("password")
@@ -265,30 +300,35 @@ class CoreDaemon:
         def user_create(username: str, email: str, password: str):
             """Create a new user with the provided username, email, and password."""
             from repositories.user_repository import UserRepository
+
             user_repo = UserRepository(self.db, self.app)
             user_repo.register_user(username, email, password)
             self.logger.info(f"User {username} created successfully.")
-            
+
         @click.argument("username")
         @self.app.cli.command("user-set-password")
         def user_set_password(username: str):
             """Set the password for a user."""
             from repositories.user_repository import UserRepository
+
             user_repo = UserRepository(self.db, self.app)
             user = user_repo.find_by_username(username)
             if user:
-                password = click.prompt("Enter the new password", hide_input=True, confirmation_prompt=True)
+                password = click.prompt(
+                    "Enter the new password", hide_input=True, confirmation_prompt=True
+                )
                 user.set_password(password)
                 user_repo.update(user)
                 self.logger.info(f"Password for user {username} set successfully.")
             else:
                 self.logger.error(f"User {username} not found.")
-            
+
         @click.argument("username")
         @self.app.cli.command("user-activate")
         def user_activate(username: str):
             """Activate a user account."""
             from repositories.user_repository import UserRepository
+
             user_repo = UserRepository(self.db, self.app)
             user = user_repo.find_by_username(username)
             if user:
@@ -296,13 +336,13 @@ class CoreDaemon:
                 self.logger.info(f"User {username} activated successfully.")
             else:
                 self.logger.error(f"User {username} not found.")
-                
-                
+
         @click.argument("username")
         @self.app.cli.command("user-confirm")
         def user_confirm(username: str):
             """Confirm a user account."""
             from repositories.user_repository import UserRepository
+
             user_repo = UserRepository(self.db, self.app)
             user = user_repo.find_by_username(username)
             if user:
@@ -310,7 +350,7 @@ class CoreDaemon:
                 self.logger.info(f"User {username} confirmed successfully.")
             else:
                 self.logger.error(f"User {username} not found.")
-        
+
         @self.app.cli.command("db-init")
         def db_init():
             """Initialize the migration directory."""
@@ -325,8 +365,12 @@ class CoreDaemon:
             """Generate a new migration."""
             with self.app.app_context():
                 alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
-                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
-                command.revision(alembic_cfg, autogenerate=True, message="Generate migration")
+                alembic_cfg.set_main_option(
+                    "sqlalchemy.url", self.app.config["SQLALCHEMY_DATABASE_URI"]
+                )
+                command.revision(
+                    alembic_cfg, autogenerate=True, message="Generate migration"
+                )
                 self.logger.info("Migration script created.")
 
         @self.app.cli.command("db-upgrade")
@@ -334,7 +378,9 @@ class CoreDaemon:
             """Apply migrations."""
             with self.app.app_context():
                 alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
-                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
+                alembic_cfg.set_main_option(
+                    "sqlalchemy.url", self.app.config["SQLALCHEMY_DATABASE_URI"]
+                )
                 command.upgrade(alembic_cfg, "head")
                 self.logger.info("Database upgraded successfully.")
 
@@ -343,20 +389,41 @@ class CoreDaemon:
             """Revert migrations."""
             with self.app.app_context():
                 alembic_cfg = alembic_config.Config(file_="migrations/alembic.ini")
-                alembic_cfg.set_main_option("sqlalchemy.url", self.app.config['SQLALCHEMY_DATABASE_URI'])
+                alembic_cfg.set_main_option(
+                    "sqlalchemy.url", self.app.config["SQLALCHEMY_DATABASE_URI"]
+                )
                 command.downgrade(alembic_cfg, "-1")
                 self.logger.info("Database downgraded successfully.")
-                
+
         @self.app.cli.command("db-seed")
-        @click.option("--models", "-m", multiple=True, help="Models to seed, use file-level import names not full paths.")
-        @click.option("--all", "-a", is_flag=True, help="Seed all models.", default=False)
-        @click.option("--stop-on-error", "-s", is_flag=True, help="Stop seeding on first error.", default=False)
+        @click.option(
+            "--models",
+            "-m",
+            multiple=True,
+            help="Models to seed, use file-level import names not full paths.",
+        )
+        @click.option(
+            "--all", "-a", is_flag=True, help="Seed all models.", default=False
+        )
+        @click.option(
+            "--stop-on-error",
+            "-s",
+            is_flag=True,
+            help="Stop seeding on first error.",
+            default=False,
+        )
         def db_seed(models: list[str], all: bool, stop_on_error: bool) -> None:
             """Seed the database with initial data."""
             self.seed_database(
-                app=self.app, db=self.db, logger=self.logger, models=models, seed_all=all, stop_on_error=stop_on_error
+                app=self.app,
+                db=self.db,
+                logger=self.logger,
+                models=models,
+                seed_all=all,
+                stop_on_error=stop_on_error,
             )
-        
+
+
 # Entry point for the core daemon and docker container
 if __name__ == "__main__":
     import argparse
@@ -366,7 +433,13 @@ if __name__ == "__main__":
     parser.add_argument("--log-path", type=str, help="Path to the log file.")
     parser.add_argument("--flask-host", type=str, help="Host for Flask.")
     parser.add_argument("--flask-port", type=int, help="Port for Flask.")
-    parser.add_argument("command", type=str, nargs="?", choices=["migrate", "upgrade", "downgrade"], help="Database migration commands.")
+    parser.add_argument(
+        "command",
+        type=str,
+        nargs="?",
+        choices=["migrate", "upgrade", "downgrade"],
+        help="Database migration commands.",
+    )
 
     args = parser.parse_args()
 
@@ -389,7 +462,7 @@ if __name__ == "__main__":
         daemon.db_downgrade()
     else:
         daemon.run()
-        
+
 # this is the entry point for the flask cli utility
 else:
     daemon = CoreDaemon()
