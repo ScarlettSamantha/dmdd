@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Type, TypeVar, List, Optional
+from typing import Type, TypeVar, List, Optional, Tuple, Union, Any, Dict
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import declared_attr, Mapped, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
@@ -7,24 +7,25 @@ from sqlalchemy_serializer import SerializerMixin
 from uuid import uuid4, UUID
 
 # Type variable for model classes
-T = TypeVar('T', bound='BaseModel')
+T = TypeVar("T", bound="BaseModel")
 
 base = declarative_base()
- 
+
+
 class BaseModel(base, SerializerMixin):
     """
     Base model class that other models will inherit from.
     Provides common columns and methods for migrations and utilities.
     """
-    __abstract__ = True
-    __enable_seeding__ = False
-    __ALLOWED_API_FIELDS__ = tuple()
-    
-    serialize_head_only = tuple()
-    serialize_head_rules = tuple()
-    serialize_only = tuple()
-    serialize_rules = tuple()
-    
+
+    __abstract__: bool = True
+    __enable_seeding__: bool = False
+    __ALLOWED_API_FIELDS__: Tuple[Union[str, None], ...] = tuple()
+
+    serialize_head_only: Tuple[Union[str, None], ...] = tuple()
+    serialize_head_rules: Tuple[Union[str, None], ...] = tuple()
+    serialize_only: Tuple[Union[str, None], ...] = tuple()
+    serialize_rules: Tuple[Union[str, None], ...] = tuple()
 
     @declared_attr
     def id(cls) -> Mapped[str]:
@@ -39,9 +40,12 @@ class BaseModel(base, SerializerMixin):
             nullable=False,
         )
 
-    
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     def save(self, db) -> None:
@@ -69,7 +73,7 @@ class BaseModel(base, SerializerMixin):
         :return: True if the record has been soft-deleted, False otherwise.
         """
         return self.deleted_at is not None
-    
+
     def soft_delete(self, db) -> None:
         """
         Soft-delete the current instance from the database.
@@ -78,9 +82,9 @@ class BaseModel(base, SerializerMixin):
         """
         self.deleted_at = datetime.utcnow()
         self.save(db)
-        
+
     @classmethod
-    def get_allowed_fields(cls) -> tuple:
+    def get_allowed_fields(cls) -> Tuple[Union[str, None], ...]:
         """
         Get the allowed fields for API responses.
 
@@ -101,7 +105,7 @@ class BaseModel(base, SerializerMixin):
         return db.session.query(cls).get(record_id)
 
     @classmethod
-    def all(cls: Type[T], db) -> list[T]:
+    def all(cls: Type[T], db) -> List[T]:
         """
         Fetch all records of this model.
 
@@ -128,7 +132,7 @@ class BaseModel(base, SerializerMixin):
         """
         self.id = str(value)
 
-    def api_response(self, full: bool = True) -> dict:
+    def api_response(self, full: bool = True) -> str | List[Any] | Dict[Any, Any]:
         """
         Get a dictionary representation of the model instance for API responses.
 
@@ -136,12 +140,15 @@ class BaseModel(base, SerializerMixin):
         """
         if full:
             return self.to_dict(rules=self.serialize_rules, only=self.serialize_only)
-        else: 
-            return self.to_dict(rules=self.serialize_head_rules, only=self.serialize_head_only)
-        
-        
+        else:
+            return self.to_dict(
+                rules=self.serialize_head_rules, only=self.serialize_head_only
+            )
+
     @classmethod
-    def seed(cls) -> Optional[List[T]]:
+    def seed(
+        cls, generate_sub_objects: bool = False, *args, **kwargs
+    ) -> Optional[List["BaseModel"]]:
         """
         Seed the database with initial data.
         """
