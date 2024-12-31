@@ -4,11 +4,11 @@ declare(strict_types=1);
 use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Illuminate\Support\Facades\Route;
 
-use Gui\App\Http\Controllers\Api\VersionController;
 use Scarlett\DMDD\GUI\Http\Controllers\Gui\AuthController;
 use Scarlett\DMDD\GUI\Http\Controllers\Gui\DashboardController;
 
-use Gui\App\Http\Controllers\Api\SystemUserController;
+use Scarlett\DMDD\GUI\App\Http\Controllers\Api\SystemUserController;
+use Scarlett\DMDD\GUI\App\Http\Controllers\Api\VersionController;
 use Scarlett\DMDD\GUI\Http\Middleware\Authenticate;
 
 # Web gui authentication

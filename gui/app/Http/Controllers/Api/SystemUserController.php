@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Gui\App\Http\Controllers\Api;
+namespace Scarlett\DMDD\GUI\App\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

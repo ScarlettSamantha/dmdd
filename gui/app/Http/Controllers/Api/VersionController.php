@@ -1,6 +1,6 @@
 <?php
 
-namespace Gui\App\Http\Controllers\Api;
+namespace Scarlett\DMDD\GUI\App\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationService;
