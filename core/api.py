@@ -6,6 +6,8 @@ from version import VERSION
 from models.user import User
 from models.model import T
 from flask_sqlalchemy import SQLAlchemy
+from repositories.library_repository import LibraryRepository
+from models.library import Library
 
 
 class ApiAuthenticator:
@@ -25,14 +27,16 @@ class ApiAuthenticator:
         return UserRepository(app=self.app, db=self.db).search_by_api_key(
             token, is_active=True, is_admin=False, is_confirmed=True
         )
-        
+
+
 class InputValidator:
     @staticmethod
     def verify_input(
-        input_data: Dict,
+        input_data: Optional[Union[Dict[Any, Any], Any]],
         model: Union[Type[T], Dict[str, Type]],
         exclude_internal: bool = True,
-        type_validation: Callable[[object, Type], bool] = lambda value, expected_type: isinstance(value, expected_type)
+        type_validation: Callable[[object, Type], bool] = lambda value,
+        expected_type: isinstance(value, expected_type),
     ) -> List[str]:
         """
         Verify input data matches the model fields and types or a provided schema, including nested validation.
@@ -44,16 +48,24 @@ class InputValidator:
         :return: A list of validation error messages
         """
         errors = []
-        internal_columns = ['id', 'created_at', 'updated_at'] if exclude_internal else []
+        internal_columns = (
+            ["id", "created_at", "updated_at"] if exclude_internal else []
+        )
 
-        def get_allowed_api_fields(model_class: Type[T]) -> Iterable[str]:
+        def get_allowed_api_fields(model_class: Type[T]) -> Optional[Iterable[str]]:
             """
             Retrieve the allowed API fields for the given model.
 
             :param model_class: The SQLAlchemy model class
             :return: An iterable of allowed field names
             """
-            allowed_fields: Optional[Iterable] = getattr(model_class, 'get_allowed_fields', None)() if hasattr(model_class, 'get_allowed_fields') else None
+            if not hasattr(model_class, "get_allowed_fields"):
+                return None
+
+            allowed_fields: Optional[Iterable[str]] = getattr(
+                model_class, "get_allowed_fields"
+            )
+
             if not allowed_fields:
                 # Default to all column names if __ALLOWED_API_FIELDS__ is None or empty
                 return [column.name for column in model_class.__table__.columns]
@@ -66,7 +78,9 @@ class InputValidator:
                 if not isinstance(value, dict):
                     errors.append(f"Field '{field_name}' should be a dictionary.")
                 else:
-                    nested_errors = InputValidator.verify_input(value, expected_type, exclude_internal, type_validation)
+                    nested_errors = InputValidator.verify_input(
+                        value, expected_type, exclude_internal, type_validation
+                    )
                     errors.extend([f"{field_name}.{err}" for err in nested_errors])
             elif isinstance(expected_type, list):
                 # Validation for lists of a specific type
@@ -76,24 +90,31 @@ class InputValidator:
                     for idx, item in enumerate(value):
                         for subtype in expected_type:
                             if not type_validation(item, subtype):
-                                errors.append(f"Field '{field_name}[{idx}]' should be of type '{subtype.__name__}'.")
+                                errors.append(
+                                    f"Field '{field_name}[{idx}]' should be of type '{subtype.__name__}'."
+                                )
             else:
                 # Basic type validation
                 if not type_validation(value, expected_type):
-                    errors.append(f"Field '{field_name}' should be of type '{expected_type.__name__}'.")
+                    errors.append(
+                        f"Field '{field_name}' should be of type '{expected_type.__name__}'."
+                    )
 
         if isinstance(model, dict):
             # Validate against a provided dictionary schema
             for field, field_type in model.items():
-                if field not in input_data:
+                if not isinstance(input_data, dict) or field not in input_data:
                     errors.append(f"Field '{field}' is required.")
                     continue
 
                 validate_field(input_data[field], field_type, field)
 
-            for key in input_data.keys():
-                if key not in model:
-                    errors.append(f"Field '{key}' is not valid for the provided schema.")
+            if input_data is not None:
+                for key in input_data.keys():
+                    if key not in model:
+                        errors.append(
+                            f"Field '{key}' is not valid for the provided schema."
+                        )
         else:
             # Validate against SQLAlchemy model
             allowed_fields = get_allowed_api_fields(model)
@@ -117,8 +138,13 @@ class InputValidator:
 
             # Additional validation for unexpected fields
             for key in input_data.keys():
-                if key not in [column.name for column in model.__table__.columns] or key not in allowed_fields:
-                    errors.append(f"Field '{key}' is not valid for model '{model.__name__}'.")
+                if (
+                    key not in [column.name for column in model.__table__.columns]
+                    or key not in allowed_fields
+                ):
+                    errors.append(
+                        f"Field '{key}' is not valid for model '{model.__name__}'."
+                    )
 
         return errors
 
@@ -127,197 +153,434 @@ class APIHandler:
     def __init__(self, app: Flask, db, validator: Type[InputValidator]) -> None:
         self.app: Flask = app
         self.api: Api = Api(self.app)
-        self.db: SQLAlchemy = db 
+        self.db: SQLAlchemy = db
         self.authenticator: ApiAuthenticator = ApiAuthenticator(app, db)
         self.validator: Type[InputValidator] = validator
         self.setup_routes()
-        
-    def unauthorized(self) -> dict:
-        return {"status": "error", "message": "Unauthorized", "http_code": 401}, 401
+
+    def unauthorized(self) -> dict[str, Any]:
+        return {"status": "error", "message": "Unauthorized", "http_code": 401}
 
     def require_auth(self, func: Callable):
         """
         Instance-level decorator for enforcing authentication.
         """
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            token: str = request.headers.get('Authorization')
-            token: Optional[str] = token.split(" ")[1] if token and len(token.split(" ")) > 1 and len(token.split(" ")[1]) == 36 else None
-            user = self.authenticator.authenticate(token)
+            _token_raw: Optional[str] = request.headers.get("Authorization")
+            _token: Optional[str] = (
+                _token_raw.split(" ")[1]
+                if _token_raw
+                and len(_token_raw.split(" ")) > 1
+                and len(_token_raw.split(" ")[1]) == 36
+                else None
+            )
+            user = self.authenticator.authenticate(_token)
             if not user:
                 return self.unauthorized()
 
             g.user = user  # Store the authenticated user in the global context
             return func(*args, **kwargs)
+
         return wrapper
 
     def setup_routes(self) -> None:
-        constructor_kwargs = {'require_auth': self.require_auth, 'app': self.app, 'db': self.db, 'validator': self.validator()}
-        
+        constructor_kwargs = {
+            "require_auth": self.require_auth,
+            "app": self.app,
+            "db": self.db,
+            "validator": self.validator(),
+        }
+
         # Playlist routes
-        self.api.add_resource(PlaylistResource, '/api/playlists', '/api/playlists/<uuid:playlist_id>')
-        self.api.add_resource(PlaylistItemResource, '/api/playlists/<uuid:playlist_id>/items',
-                              '/api/playlists/<uuid:playlist_id>/items/<uuid:item_id>')
+        self.api.add_resource(
+            PlaylistResource, "/api/playlists", "/api/playlists/<uuid:playlist_id>"
+        )
+        self.api.add_resource(
+            PlaylistItemResource,
+            "/api/playlists/<uuid:playlist_id>/items",
+            "/api/playlists/<uuid:playlist_id>/items/<uuid:item_id>",
+        )
 
         # System routes
-        self.api.add_resource(SystemEventResource, '/api/system/events', '/api/system/events/<uuid:event_id>')
-        self.api.add_resource(SystemUserResource, '/api/system/users', '/api/system/users/<uuid:user_id>',
-                              resource_class_kwargs=constructor_kwargs)
+        self.api.add_resource(
+            SystemEventResource,
+            "/api/system/events",
+            "/api/system/events/<uuid:event_id>",
+        )
+        self.api.add_resource(
+            SystemUserResource,
+            "/api/system/users",
+            "/api/system/users/<uuid:user_id>",
+            resource_class_kwargs=constructor_kwargs,
+        )
+
+        self.api.add_resource(
+            LibraryResource,
+            "/api/libraries",
+            "/api/libraries/<uuid:library_id>",
+            resource_class_kwargs=constructor_kwargs,
+        )
 
         # Version routes
-        self.api.add_resource(VersionResource, '/version', '/api/system/version')
+        self.api.add_resource(VersionResource, "/version", "/api/system/version")
 
 
 class AuthResource(Resource):
-    
-    func_auth_required = ()
-    
-    def __init__(self, require_auth: Callable, app: Flask, db: SQLAlchemy, validator: Type[InputValidator]) -> None:
+    func_auth_required: Tuple[str, ...] = ()
+
+    def __init__(
+        self,
+        require_auth: Callable,
+        app: Flask,
+        db: SQLAlchemy,
+        validator: Type[InputValidator],
+    ) -> None:
         self.app: Flask = app
         self.db: SQLAlchemy = db
         self.require_auth: Callable = require_auth
         self.validator: Type[InputValidator] = validator
 
         self.apply_auths()
-    
+
     def apply_auths(self):
         for func in self.func_auth_required:
-            if hasattr(self, func) and callable(getattr(self, func)) and not func.startswith('_'):
+            if (
+                hasattr(self, func)
+                and callable(getattr(self, func))
+                and not func.startswith("_")
+            ):
                 setattr(self, func, self.require_auth(getattr(self, func)))
-    
+
     def apply_auth(self, func):
         return self.require_auth(func)
-    
+
     def make_response(self, data, *args, **kwargs):
         """
         Ensure responses are always JSON serializable.
         """
         if isinstance(data, (dict, list)):  # If data is already JSON-serializable
             return jsonify(data)
-        elif isinstance(data, tuple):  # Handle (data, status) or (data, status, headers)
-            serialized_data = jsonify(data[0]) if isinstance(data[0], (dict, list)) else data[0]
+        elif isinstance(
+            data, tuple
+        ):  # Handle (data, status) or (data, status, headers)
+            serialized_data = (
+                jsonify(data[0]) if isinstance(data[0], (dict, list)) else data[0]
+            )
             return serialized_data, *data[1:]
         return data  # Default behavior if it's already a valid response
 
 
 class VersionResource(Resource):
     def get(self):
-        return jsonify({
-            "status": "success",
-            "data": {
-                "version": f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}",
-                "releaselevel": VERSION[3],
-                "serial": VERSION[4]
+        return jsonify(
+            {
+                "status": "success",
+                "data": {
+                    "version": f"{VERSION[0]}.{VERSION[1]}.{VERSION[2]}",
+                    "releaselevel": VERSION[3],
+                    "serial": VERSION[4],
+                },
             }
-        })
+        )
+
+
+class LibraryResource(AuthResource):
+    func_auth_required: Tuple[str, ...] = ("get", "post", "put", "delete")
+
+    def __init__(
+        self, require_auth, app: Flask, db: SQLAlchemy, validator: Type[InputValidator]
+    ) -> None:
+        super().__init__(require_auth, app, db, validator)
+        self.repo = LibraryRepository(app=self.app, db=self.db)
+
+    def get(self, library_id: Optional[str] = None):
+        """
+        Fetch a library by ID or list all libraries.
+        """
+        if library_id:
+            library = self.repo.get_by_id(library_id)
+            if not library:
+                return {"status": "error", "message": "Library not found"}, 404
+            return self.make_response(
+                {"status": "success", "data": library.api_response(full=True)}
+            )
+        else:
+            libraries = self.repo.get_all()
+            return {
+                "status": "success",
+                "data": {
+                    "libraries": [
+                        library.api_response(full=False) for library in libraries
+                    ]
+                },
+            }
+
+    def post(self):
+        """
+        Create a new library.
+        """
+        library_data = request.json
+        try:
+            if not isinstance(library_data, dict):
+                return {"status": "error", "message": "Invalid input data"}, 400
+
+            validation_errors = self.validator.verify_input(library_data, Library)
+            if validation_errors:
+                return {"status": "error", "errors": validation_errors}, 400
+
+            new_library = Library(
+                name=library_data["name"],
+                description=library_data["description"],
+                is_public=library_data.get("is_public", True),
+                owner_id=library_data["owner_id"],
+            )
+            self.repo.add(new_library)
+            return {
+                "status": "success",
+                "data": new_library.api_response(full=True),
+                "message": "Library created successfully",
+            }, 201
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 400
+
+    def put(self, library_id: str):
+        """
+        Update an existing library by ID.
+        """
+        library_data = request.json
+        library = self.repo.get_by_id(library_id)
+        if not library:
+            return {"status": "error", "message": "Library not found"}, 404
+
+        try:
+            if not isinstance(library_data, dict):
+                return {"status": "error", "message": "Invalid input data"}, 400
+
+            validation_errors = self.validator.verify_input(library_data, Library)
+            if validation_errors:
+                return {"status": "error", "errors": validation_errors}, 400
+
+            for key, value in library_data.items():
+                if hasattr(library, key):
+                    setattr(library, key, value)
+            updated_library = self.repo.update(library)
+            return {
+                "status": "success",
+                "data": updated_library.api_response(full=True),
+                "message": "Library updated successfully",
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 400
+
+    def delete(self, library_id: str):
+        """
+        Delete a library by ID.
+        """
+        library = self.repo.get_by_id(library_id)
+        if not library:
+            return {"status": "error", "message": "Library not found"}, 404
+
+        try:
+            self.repo.delete(library)
+            return {
+                "status": "success",
+                "message": f"Library {library_id} deleted successfully",
+            }, 204
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 400
+
+    def link(self, library_id: str, other_id: str):
+        """
+        Link a library to another entity.
+        """
+        try:
+            library = self.repo.get_by_id(library_id)
+            if not library:
+                return {"status": "error", "message": "Library not found"}, 404
+
+            linked = self.repo.link_to_other(library_id, other_id)
+            if not linked:
+                return {"status": "error", "message": "Failed to link library"}, 400
+
+            return {
+                "status": "success",
+                "message": f"Library {library_id} linked successfully",
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 400
+
+    def unlink(self, library_id: str, user_id: str):
+        """
+        Unlink a library from another entity.
+        """
+        try:
+            library = self.repo.get_by_id(library_id)
+            if not library:
+                return {"status": "error", "message": "Library not found"}, 404
+
+            unlinked = self.repo.unlink_from_other(library_id, user_id)
+            if not unlinked:
+                return {"status": "error", "message": "Failed to unlink library"}, 400
+
+            return {
+                "status": "success",
+                "message": f"Library {library_id} unlinked successfully",
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}, 400
+
 
 class PlaylistResource(Resource):
     def get(self, playlist_id: Optional[str] = None):
         if playlist_id:
-            return jsonify({
+            return jsonify(
+                {
+                    "status": "success",
+                    "data": {"id": playlist_id, "name": f"Playlist {playlist_id}"},
+                }
+            )
+        return jsonify(
+            {
                 "status": "success",
-                "data": {"id": playlist_id, "name": f"Playlist {playlist_id}"}
-            })
-        return jsonify({
-            "status": "success",
-            "data": {"playlists": [{"id": "1", "name": "Playlist 1"}, {"id": "2", "name": "Playlist 2"}]}
-        })
+                "data": {
+                    "playlists": [
+                        {"id": "1", "name": "Playlist 1"},
+                        {"id": "2", "name": "Playlist 2"},
+                    ]
+                },
+            }
+        )
 
     def post(self):
         new_playlist = request.json
-        return jsonify({
-            "status": "success",
-            "data": new_playlist,
-            "message": "Playlist created"
-        }), 201
+        return jsonify(
+            {"status": "success", "data": new_playlist, "message": "Playlist created"}
+        ), 201
 
     def put(self, playlist_id: str):
         updated_data = request.json
-        return jsonify({
-            "status": "success",
-            "data": {"id": playlist_id, "updated": updated_data},
-            "message": "Playlist updated"
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "data": {"id": playlist_id, "updated": updated_data},
+                "message": "Playlist updated",
+            }
+        )
 
     def delete(self, playlist_id: str):
-        return jsonify({
-            "status": "success",
-            "message": f"Playlist {playlist_id} deleted"
-        }), 204
+        return jsonify(
+            {"status": "success", "message": f"Playlist {playlist_id} deleted"}
+        ), 204
+
 
 class PlaylistItemResource(Resource):
     def get(self, playlist_id: str, item_id: Optional[str] = None):
         if item_id:
-            return jsonify({
+            return jsonify(
+                {
+                    "status": "success",
+                    "data": {
+                        "id": item_id,
+                        "name": f"Item {item_id} in Playlist {playlist_id}",
+                    },
+                }
+            )
+        return jsonify(
+            {
                 "status": "success",
-                "data": {"id": item_id, "name": f"Item {item_id} in Playlist {playlist_id}"}
-            })
-        return jsonify({
-            "status": "success",
-            "data": {"items": [{"id": "1", "name": "Item 1"}, {"id": "2", "name": "Item 2"}]}
-        })
+                "data": {
+                    "items": [
+                        {"id": "1", "name": "Item 1"},
+                        {"id": "2", "name": "Item 2"},
+                    ]
+                },
+            }
+        )
 
     def post(self, playlist_id: str):
         new_item = request.json
-        return jsonify({
-            "status": "success",
-            "data": new_item,
-            "message": f"Item added to Playlist {playlist_id}"
-        }), 201
+        return jsonify(
+            {
+                "status": "success",
+                "data": new_item,
+                "message": f"Item added to Playlist {playlist_id}",
+            }
+        ), 201
 
     def put(self, playlist_id: str, item_id: str):
         updated_data = request.json
-        return jsonify({
-            "status": "success",
-            "data": {"id": item_id, "updated": updated_data},
-            "message": f"Item {item_id} updated in Playlist {playlist_id}"
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "data": {"id": item_id, "updated": updated_data},
+                "message": f"Item {item_id} updated in Playlist {playlist_id}",
+            }
+        )
 
     def delete(self, playlist_id: str, item_id: str):
-        return jsonify({
-            "status": "success",
-            "message": f"Item {item_id} deleted from Playlist {playlist_id}"
-        }), 204
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Item {item_id} deleted from Playlist {playlist_id}",
+            }
+        ), 204
+
 
 class SystemEventResource(Resource):
     def get(self, event_id: Optional[str] = None):
         if event_id:
-            return jsonify({
+            return jsonify(
+                {
+                    "status": "success",
+                    "data": {"id": event_id, "description": f"Event {event_id}"},
+                }
+            )
+        return jsonify(
+            {
                 "status": "success",
-                "data": {"id": event_id, "description": f"Event {event_id}"}
-            })
-        return jsonify({
-            "status": "success",
-            "data": {"events": [{"id": "1", "description": "Event 1"}, {"id": "2", "description": "Event 2"}]}
-        })
+                "data": {
+                    "events": [
+                        {"id": "1", "description": "Event 1"},
+                        {"id": "2", "description": "Event 2"},
+                    ]
+                },
+            }
+        )
 
     def post(self):
         new_event = request.json
-        return jsonify({
-            "status": "success",
-            "data": new_event,
-            "message": "Event created"
-        }), 201
+        return jsonify(
+            {"status": "success", "data": new_event, "message": "Event created"}
+        ), 201
 
     def put(self, event_id: str):
         updated_data = request.json
-        return jsonify({
-            "status": "success",
-            "data": {"id": event_id, "updated": updated_data},
-            "message": f"Event {event_id} updated"
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "data": {"id": event_id, "updated": updated_data},
+                "message": f"Event {event_id} updated",
+            }
+        )
 
     def delete(self, event_id: str):
-        return jsonify({
-            "status": "success",
-            "message": f"Event {event_id} deleted"
-        }), 204
+        return jsonify(
+            {"status": "success", "message": f"Event {event_id} deleted"}
+        ), 204
+
 
 class SystemUserResource(AuthResource):
+    func_auth_required: Tuple[str, ...] = ("get", "post", "put", "delete")
 
-    func_auth_required: Tuple[str] = ('get', 'post', 'put', 'delete')
-
-    def __init__(self, require_auth: Callable, app: Flask, db: SQLAlchemy, validator: Type[InputValidator]) -> None:
+    def __init__(
+        self,
+        require_auth: Callable,
+        app: Flask,
+        db: SQLAlchemy,
+        validator: Type[InputValidator],
+    ) -> None:
         from repositories.user_repository import UserRepository
 
         super().__init__(require_auth, app, db, validator)
@@ -331,31 +594,40 @@ class SystemUserResource(AuthResource):
             user = self.repo.get_by_id(user_id)
             if not user:
                 return {"status": "error", "message": "User not found"}, 404
-            return self.make_response({"status": "success", "data": user.api_response(full=True)})
+            return self.make_response(
+                {"status": "success", "data": user.api_response(full=True)}
+            )
         else:
             users = self.repo.get_all()
-            return {"status": "success", "data": {"users": [user.api_response(full=False) for user in users]}}
+            return {
+                "status": "success",
+                "data": {"users": [user.api_response(full=False) for user in users]},
+            }
 
     def post(self):
         """
         Create a new user.
         """
-        user_data = request.json
+        user_data: Optional[Dict] = request.json
         try:
             validation_errors = self.validator.verify_input(user_data, User)
-            if validation_errors:
+            if user_data is None or validation_errors:
                 return {"status": "error", "errors": validation_errors}, 400
 
             new_user = self.repo.register_user(
-                username=user_data['username'],
-                email=user_data['email'],
-                password=user_data['password'],
-                active_user=user_data.get('is_active', False),
-                confirm_user=user_data.get('is_confirmed', False),
-                admin_user=user_data.get('is_admin', False),
-                generate_api_key=user_data.get('generate_api_key', False)
+                username=user_data["username"],
+                email=user_data["email"],
+                password=user_data["password"],
+                active_user=user_data.get("is_active", False),
+                confirm_user=user_data.get("is_confirmed", False),
+                admin_user=user_data.get("is_admin", False),
+                generate_api_key=user_data.get("generate_api_key", False),
             )
-            return {"status": "success", "data": new_user.api_response(full=True), "message": "User created successfully"}, 201
+            return {
+                "status": "success",
+                "data": new_user.api_response(full=True),
+                "message": "User created successfully",
+            }, 201
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 
@@ -366,18 +638,22 @@ class SystemUserResource(AuthResource):
         user_data = request.json
         user = self.repo.get_by_id(user_id)
         if not user:
-            return {"status": "error", "message": "User not found"}, 404
+            return {"status": "error", "message": "sser not found"}, 404
 
         try:
             validation_errors = self.validator.verify_input(user_data, User)
-            if validation_errors:
+            if user_data is None or validation_errors:
                 return {"status": "error", "errors": validation_errors}, 400
 
             for key, value in user_data.items():
                 if hasattr(user, key):
                     setattr(user, key, value)
             updated_user = self.repo.update(user)
-            return {"status": "success", "data": updated_user.api_response(full=True), "message": "User updated successfully"}
+            return {
+                "status": "success",
+                "data": updated_user.api_response(full=True),
+                "message": "User updated successfully",
+            }
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 
@@ -391,7 +667,10 @@ class SystemUserResource(AuthResource):
 
         try:
             self.repo.delete(user)
-            return {"status": "success", "message": f"User {user_id} deleted successfully"}, 204
+            return {
+                "status": "success",
+                "message": f"User {user_id} deleted successfully",
+            }, 204
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 

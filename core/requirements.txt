@@ -11,3 +11,4 @@ setproctitle
 python-dotenv
 gunicorn
 alembic
+faker
