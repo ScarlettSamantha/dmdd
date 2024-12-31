@@ -145,7 +145,15 @@ class CLICommands:
         )
         def db_seed(models: list[str], all: bool, stop_on_error: bool):
             """Seed the database."""
-            from repositories.seeder import DatabaseSeeder
+            from seeders.user import UserSeeder
 
-            seeder = DatabaseSeeder(self.db, self.logger)
-            seeder.seed(models=models, all=all, stop_on_error=stop_on_error)
+            with self.app.app_context():
+                user_seeder = UserSeeder(self.db)
+
+                try:
+                    user_seeder.run()
+                    self.logger.info("Seeding completed successfully.")
+                except Exception as e:
+                    self.logger.error(f"Error during seeding: {e}")
+                    if stop_on_error:
+                        raise e
