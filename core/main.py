@@ -209,7 +209,9 @@ class CoreDaemon:
                     yield from load_models(
                         module_name,
                         filter_models=lambda model: model.__name__.lower()
-                        in [m.lower() for m in models],
+                        in [m.lower() for m in models]
+                        if models
+                        else [],
                     )
 
         def load_models(module_name: str, filter_models=None):
