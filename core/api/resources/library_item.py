@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Optional, Tuple, Type, List
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
 
@@ -22,37 +22,41 @@ class LibraryItemResource(AuthResource):
         validator: Type[InputValidator],
     ) -> None:
         super().__init__(require_auth, app, db, validator)
-        self.repo = LibraryItemRepository(app=self.app, db=self.db)
+        self.repo: LibraryItemRepository = LibraryItemRepository(
+            app=self.app, db=self.db
+        )
 
-    def get(self, item_id: Optional[str] = None):
+    def get(self, item_id: Optional[str] = None) -> Tuple[Dict, int]:
         """
         Fetch a library item by ID or list all library items.
         """
         if item_id:
-            item = self.repo.get_by_id(item_id)
+            item: Optional[LibraryItem] = self.repo.get_by_id(item_id)
             if not item:
                 return {"status": "error", "message": "Library item not found"}, 404
-            return {"status": "success", "data": item.api_response(full=True)}
+            return {"status": "success", "data": item.api_response(full=True)}, 200
         else:
-            items = self.repo.get_all()
+            items: List[LibraryItem] = self.repo.get_all()
             return {
                 "status": "success",
                 "data": {
                     "library_items": [item.api_response(full=False) for item in items]
                 },
-            }
+            }, 200
 
-    def post(self):
+    def post(self) -> Tuple[Dict, int]:
         """
         Create a new library item.
         """
         item_data: Optional[Dict] = request.json
         try:
-            validation_errors = self.validator.verify_input(item_data, LibraryItem)
+            validation_errors: List[str] = self.validator.verify_input(
+                item_data, LibraryItem
+            )
             if item_data is None or validation_errors:
                 return {"status": "error", "errors": validation_errors}, 400
 
-            new_item = self.repo.add(
+            new_item: LibraryItem = self.repo.add(
                 LibraryItem(
                     name=item_data["name"],
                     description=item_data.get("description"),
@@ -72,11 +76,11 @@ class LibraryItemResource(AuthResource):
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 
-    def put(self, item_id: str):
+    def put(self, item_id: str) -> Tuple[Dict, int]:
         """
         Update an existing library item by ID.
         """
-        item_data = request.json
+        item_data: Any | None = request.json
         item = self.repo.get_by_id(item_id)
         if not item:
             return {"status": "error", "message": "Library item not found"}, 404
@@ -95,11 +99,11 @@ class LibraryItemResource(AuthResource):
                 "status": "success",
                 "data": updated_item.api_response(full=True),
                 "message": "Library item updated successfully",
-            }
+            }, 200
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 
-    def delete(self, item_id: str):
+    def delete(self, item_id: str) -> Tuple[Dict, int]:
         """
         Delete a library item by ID.
         """
@@ -116,7 +120,7 @@ class LibraryItemResource(AuthResource):
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
 
-    def link(self, item_id: str, library_id: str):
+    def link(self, item_id: str, library_id: str) -> Tuple[Dict, int]:
         """
         Link a library item to a library.
         """
@@ -138,6 +142,6 @@ class LibraryItemResource(AuthResource):
                 "status": "success",
                 "data": updated_item.api_response(full=True),
                 "message": "Library item linked to library successfully",
-            }
+            }, 200
         except Exception as e:
             return {"status": "error", "message": str(e)}, 400
