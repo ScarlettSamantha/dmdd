@@ -1,9 +1,9 @@
 from typing import Optional, Tuple, Type
 from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
-from models.library import Library
 from api.resources.auth import AuthResource
 from api.validators import InputValidator
+from models.library import Library
 from repositories.library_repository import LibraryRepository
 
 
@@ -20,36 +20,36 @@ class LibraryResource(AuthResource):
         """
         Fetch a library by ID or list all libraries.
         """
-        if library_id:
-            library = self.repo.get_by_id(library_id)
-            if not library:
-                return {"status": "error", "message": "Library not found"}, 404
-            return self.make_response(
-                {"status": "success", "data": library.api_response(full=True)}
-            )
-        else:
-            libraries = self.repo.get_all()
-            return {
-                "status": "success",
-                "data": {
-                    "libraries": [
-                        library.api_response(full=False) for library in libraries
-                    ]
-                },
-            }
+        try:
+            if library_id:
+                library = self.repo.get_by_id(library_id)
+                if not library:
+                    return self.failure_response("Library not found", status_code=404)
+                return self.success_response(data=library.api_response(full=True))
+            else:
+                libraries = self.repo.get_all()
+                return self.success_response(
+                    data={
+                        "libraries": [
+                            library.api_response(full=False) for library in libraries
+                        ]
+                    }
+                )
+        except Exception as e:
+            return self.exception_response(e)
 
     def post(self):
         """
         Create a new library.
         """
-        library_data = request.json
         try:
+            library_data = request.json
             if not isinstance(library_data, dict):
-                return {"status": "error", "message": "Invalid input data"}, 400
+                return self.failure_response("Invalid input data", status_code=400)
 
             validation_errors = self.validator.verify_input(library_data, Library)
             if validation_errors:
-                return {"status": "error", "errors": validation_errors}, 400
+                return self.failure_response(errors=validation_errors, status_code=400)
 
             new_library = Library(
                 name=library_data["name"],
@@ -58,59 +58,58 @@ class LibraryResource(AuthResource):
                 owner_id=library_data["owner_id"],
             )
             self.repo.add(new_library)
-            return {
-                "status": "success",
-                "data": new_library.api_response(full=True),
-                "message": "Library created successfully",
-            }, 201
+            return self.success_response(
+                data=new_library.api_response(full=True),
+                message="Library created successfully",
+                status_code=201,
+            )
         except Exception as e:
-            return {"status": "error", "message": str(e)}, 400
+            return self.exception_response(e)
 
     def put(self, library_id: str):
         """
         Update an existing library by ID.
         """
-        library_data = request.json
-        library = self.repo.get_by_id(library_id)
-        if not library:
-            return {"status": "error", "message": "Library not found"}, 404
-
         try:
+            library_data = request.json
+            library = self.repo.get_by_id(library_id)
+            if not library:
+                return self.failure_response("Library not found", status_code=404)
+
             if not isinstance(library_data, dict):
-                return {"status": "error", "message": "Invalid input data"}, 400
+                return self.failure_response("Invalid input data", status_code=400)
 
             validation_errors = self.validator.verify_input(library_data, Library)
             if validation_errors:
-                return {"status": "error", "errors": validation_errors}, 400
+                return self.failure_response(errors=validation_errors, status_code=400)
 
             for key, value in library_data.items():
                 if hasattr(library, key):
                     setattr(library, key, value)
             updated_library = self.repo.update(library)
-            return {
-                "status": "success",
-                "data": updated_library.api_response(full=True),
-                "message": "Library updated successfully",
-            }
+            return self.success_response(
+                data=updated_library.api_response(full=True),
+                message="Library updated successfully",
+            )
         except Exception as e:
-            return {"status": "error", "message": str(e)}, 400
+            return self.exception_response(e)
 
     def delete(self, library_id: str):
         """
         Delete a library by ID.
         """
-        library = self.repo.get_by_id(library_id)
-        if not library:
-            return {"status": "error", "message": "Library not found"}, 404
-
         try:
+            library = self.repo.get_by_id(library_id)
+            if not library:
+                return self.failure_response("Library not found", status_code=404)
+
             self.repo.delete(library)
-            return {
-                "status": "success",
-                "message": f"Library {library_id} deleted successfully",
-            }, 204
+            return self.success_response(
+                message=f"Library {library_id} deleted successfully",
+                status_code=204,
+            )
         except Exception as e:
-            return {"status": "error", "message": str(e)}, 400
+            return self.exception_response(e)
 
     def link(self, library_id: str, other_id: str):
         """
@@ -119,18 +118,17 @@ class LibraryResource(AuthResource):
         try:
             library = self.repo.get_by_id(library_id)
             if not library:
-                return {"status": "error", "message": "Library not found"}, 404
+                return self.failure_response("Library not found", status_code=404)
 
             linked = self.repo.link_to_other(library_id, other_id)
             if not linked:
-                return {"status": "error", "message": "Failed to link library"}, 400
+                return self.failure_response("Failed to link library", status_code=400)
 
-            return {
-                "status": "success",
-                "message": f"Library {library_id} linked successfully",
-            }
+            return self.success_response(
+                message=f"Library {library_id} linked successfully"
+            )
         except Exception as e:
-            return {"status": "error", "message": str(e)}, 400
+            return self.exception_response(e)
 
     def unlink(self, library_id: str, user_id: str):
         """
@@ -139,15 +137,16 @@ class LibraryResource(AuthResource):
         try:
             library = self.repo.get_by_id(library_id)
             if not library:
-                return {"status": "error", "message": "Library not found"}, 404
+                return self.failure_response("Library not found", status_code=404)
 
             unlinked = self.repo.unlink_from_other(library_id, user_id)
             if not unlinked:
-                return {"status": "error", "message": "Failed to unlink library"}, 400
+                return self.failure_response(
+                    "Failed to unlink library", status_code=400
+                )
 
-            return {
-                "status": "success",
-                "message": f"Library {library_id} unlinked successfully",
-            }
+            return self.success_response(
+                message=f"Library {library_id} unlinked successfully"
+            )
         except Exception as e:
-            return {"status": "error", "message": str(e)}, 400
+            return self.exception_response(e)

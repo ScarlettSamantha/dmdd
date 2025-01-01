@@ -1,8 +1,8 @@
 from typing import Callable, Tuple, Type
-from flask import Flask, Response, jsonify
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_restful import Resource
 from api.validators import InputValidator
+from api.resource import Resource
 
 
 class AuthResource(Resource):
@@ -33,18 +33,3 @@ class AuthResource(Resource):
 
     def apply_auth(self, func) -> Callable:
         return self.require_auth(func)
-
-    def make_response(self, data, *args, **kwargs) -> Tuple | Response:
-        """
-        Ensure responses are always JSON serializable.
-        """
-        if isinstance(data, (dict, list)):  # If data is already JSON-serializable
-            return jsonify(data)
-        elif isinstance(
-            data, tuple
-        ):  # Handle (data, status) or (data, status, headers)
-            serialized_data = (
-                jsonify(data[0]) if isinstance(data[0], (dict, list)) else data[0]
-            )
-            return serialized_data, *data[1:]
-        return data  # Default behavior if it's already a valid response
