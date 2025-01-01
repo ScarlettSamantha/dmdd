@@ -44,7 +44,7 @@ class InputValidator:
                 return [column.name for column in model_class.__table__.columns]
             return allowed_fields
 
-        def validate_field(value: Any, expected_type: Any, field_name: str):
+        def validate_field(value: Any, expected_type: Any, field_name: str) -> None:
             """Perform validation for a single field, including nested objects."""
             if isinstance(expected_type, dict):
                 # Recursive validation for nested dictionaries
@@ -90,10 +90,10 @@ class InputValidator:
                         )
         else:
             # Validate against SQLAlchemy model
-            allowed_fields = get_allowed_api_fields(model)
+            allowed_fields: Optional[Iterable[str]] = get_allowed_api_fields(model)
 
             for column in model.__table__.columns:
-                column_name = column.name
+                column_name: str = column.name
 
                 if column_name in internal_columns or column_name not in allowed_fields:
                     continue
@@ -103,7 +103,7 @@ class InputValidator:
                         errors.append(f"Field '{column_name}' is required.")
                     continue
 
-                value = input_data[column_name] if input_data else None
+                value: Optional[str] = input_data[column_name] if input_data else None
 
                 # Type validation
                 expected_type = column.type.python_type

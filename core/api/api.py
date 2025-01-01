@@ -1,6 +1,6 @@
 from flask import Flask, request, g
 from flask_restful import Api
-from typing import Optional, Callable, Type, Any
+from typing import Optional, Callable, Type, Any, Dict
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from api.resources.library_item import LibraryItemResource
@@ -23,16 +23,16 @@ class APIHandler:
         self.validator: Type[InputValidator] = validator
         self.setup_routes()
 
-    def unauthorized(self) -> dict[str, Any]:
+    def unauthorized(self) -> Dict[str, Any]:
         return {"status": "error", "message": "Unauthorized", "http_code": 401}
 
-    def require_auth(self, func: Callable):
+    def require_auth(self, func: Callable) -> Callable:
         """
         Instance-level decorator for enforcing authentication.
         """
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             _token_raw: Optional[str] = request.headers.get("Authorization")
             _token: Optional[str] = (
                 _token_raw.split(" ")[1]
