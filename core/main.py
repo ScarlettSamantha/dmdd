@@ -14,11 +14,11 @@ from logging.handlers import RotatingFileHandler
 from cli import ColoredCLIHandler, CLICommands
 
 # application imports
-from api import APIHandler, InputValidator
+from api import handler as APIHandler
+from api.validators import InputValidator
 from system import System
 
 from models.model import BaseModel
-
 
 # Initialize colorama for colored CLI output
 init(autoreset=True)  # Initialize colorama
@@ -38,6 +38,9 @@ class CoreDaemon:
     db_session: Optional[Any]
     cli_commands: CLICommands
     running: bool
+
+    MAX_LOG_BYTES: int = 10 * (1024 * 1024)  # 10 MB
+    BACKUP_COUNT: int = 3
 
     def __init__(self) -> None:
         load_dotenv()
@@ -82,7 +85,7 @@ class CoreDaemon:
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
         file_handler = RotatingFileHandler(
-            log_path, maxBytes=10 * 1024 * 1024, backupCount=3
+            log_path, maxBytes=self.MAX_LOG_BYTES, backupCount=self.BACKUP_COUNT
         )
         file_handler.setFormatter(
             logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -145,7 +148,8 @@ class CoreDaemon:
                 self.app.run,
                 host=os.getenv("FLASK_HOST", "0.0.0.0"),
                 port=int(os.getenv("FLASK_PORT", 5000)),
-                use_reloader=False,
+                use_reloader=bool(os.getenv("CORE_DEBUG", False)),
+                debug=bool(os.getenv("CORE_DEBUG", False)),
             )
         except Exception as e:
             self.logger.error(f"Unexpected error: {e}")
