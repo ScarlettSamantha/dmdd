@@ -1,5 +1,5 @@
 from typing import Callable, Tuple, Type
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Resource
 from api.validators import InputValidator
@@ -22,7 +22,7 @@ class AuthResource(Resource):
 
         self.apply_auths()
 
-    def apply_auths(self):
+    def apply_auths(self) -> None:
         for func in self.func_auth_required:
             if (
                 hasattr(self, func)
@@ -31,10 +31,10 @@ class AuthResource(Resource):
             ):
                 setattr(self, func, self.require_auth(getattr(self, func)))
 
-    def apply_auth(self, func):
+    def apply_auth(self, func) -> Callable:
         return self.require_auth(func)
 
-    def make_response(self, data, *args, **kwargs):
+    def make_response(self, data, *args, **kwargs) -> Tuple | Response:
         """
         Ensure responses are always JSON serializable.
         """
