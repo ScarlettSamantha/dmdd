@@ -1,11 +1,11 @@
 <?php
-namespace Database\Seeders;
+namespace Scarlett\DMDD\GUI\Seeders;
 
 use Scarlett\DMDD\GUI\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
-class TestSeeder extends Seeder
+class AdminUserSeeders extends Seeder
 {
     public function run(): void
     {
