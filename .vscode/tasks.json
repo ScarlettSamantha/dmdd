@@ -1,18 +1,64 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
         {
             "label": "d-up",
             "type": "shell",
-            "command": "sudo docker compose up --always-recreate-deps --abort-on-container-failure --remove-orphans --build --force-recreate",
+            "command": "sudo docker compose up --always-recreate-deps --abort-on-container-failure --remove-orphans --build --force-recreate | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
             "problemMatcher": []
         },
         {
             "label": "d-down",
             "type": "shell",
-            "command": "sudo docker compose down",
+            "command": "sudo docker compose down | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "phpunit-tests",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-php-fpm phpunit | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "pytest-tests",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-core pytest | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "artisan-clear-cache",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-php-fpm php artisan cache:clear | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "docker-clear-cache",
+            "type": "shell",
+            "command": "sudo docker builder prune -af --filter label=dmdd | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "rebuild-images",
+            "type": "shell",
+            "command": "sudo docker compose build --no-cache | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "db-reset",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-core flask db downgrade && sudo docker exec -it dmdd-core flask db upgrade | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "db-seed",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-core flask db-seed --all | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
+            "problemMatcher": []
+        },
+        {
+            "label": "db-hard-reset",
+            "type": "shell",
+            "command": "sudo docker exec -it dmdd-core rm -f /app/instance/db.sqlite3 && sudo docker exec -it dmdd-core flask db upgrade && sudo docker exec -it dmdd-core flask db-seed --all | tee -a .vscode/logs/tasks-$(date +'%Y%m%d-%H%M%S').log",
             "problemMatcher": []
         }
     ]
