@@ -4,9 +4,15 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "up-d",
+            "label": "d-up",
             "type": "shell",
             "command": "sudo docker compose up --always-recreate-deps --abort-on-container-failure --remove-orphans --build --force-recreate",
+            "problemMatcher": []
+        },
+        {
+            "label": "d-down",
+            "type": "shell",
+            "command": "sudo docker compose down",
             "problemMatcher": []
         }
     ]
