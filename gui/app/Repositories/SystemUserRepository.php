@@ -1,9 +1,9 @@
 <?php
-
 declare(strict_types=1);
 
 namespace Scarlett\DMDD\GUI\Repositories;
 
+use Scarlett\DMDD\GUI\Models\SystemUser;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationService;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationServiceResponse;
 
@@ -49,6 +49,17 @@ class SystemUserRepository
     }
 
     /**
+     * Transform raw data into a SystemUser model.
+     *
+     * @param mixed $data
+     * @return SystemUser|null
+     */
+    private function transformToModel(mixed $data): ?SystemUser
+    {
+        return $data ? SystemUser::fromArray((array) $data) : null;
+    }
+
+    /**
      * Retrieve a user by ID.
      *
      * @param string $userId The unique identifier of the user.
@@ -57,8 +68,8 @@ class SystemUserRepository
     public function getById(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->getUser($userId);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->getSystemUser($userId);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
@@ -72,8 +83,9 @@ class SystemUserRepository
     public function getAll(): BackendIntegrationServiceResponse
     {
         try {
-            $users = $this->backendIntegrationService->getUsers();
-            return $this->success($users);
+            $users = $this->backendIntegrationService->getSystemUsers();
+            $models = array_map(fn($user) => $this->transformToModel($user), $users);
+            return $this->success($models);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 404);
         }
@@ -88,8 +100,8 @@ class SystemUserRepository
     public function create(array $data): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->createUser($data);
-            return $this->success($user, 201);
+            $user = $this->backendIntegrationService->createSystemUser($data);
+            return $this->success($this->transformToModel($user), 201);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }
@@ -105,8 +117,8 @@ class SystemUserRepository
     public function update(string $userId, array $data): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->updateUser($userId, $data);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->updateSystemUser($userId, $data);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }
@@ -121,7 +133,7 @@ class SystemUserRepository
     public function delete(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $this->backendIntegrationService->deleteUser($userId);
+            $this->backendIntegrationService->deleteSystemUser($userId);
             return $this->success(null, 204);
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
@@ -137,8 +149,8 @@ class SystemUserRepository
     public function activate(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->activateUser($userId);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->activateSystemUser($userId);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }
@@ -153,8 +165,8 @@ class SystemUserRepository
     public function deactivate(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->deactivateUser($userId);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->deactivateSystemUser($userId);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }
@@ -169,8 +181,8 @@ class SystemUserRepository
     public function confirm(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->confirmUser($userId);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->confirmSystemUser($userId);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }
@@ -185,8 +197,8 @@ class SystemUserRepository
     public function unconfirm(string $userId): BackendIntegrationServiceResponse
     {
         try {
-            $user = $this->backendIntegrationService->unconfirmUser($userId);
-            return $this->success($user);
+            $user = $this->backendIntegrationService->unconfirmSystemUser($userId);
+            return $this->success($this->transformToModel($user));
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 400);
         }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Scarlett\DMDD\GUI\App\Http\Controllers\Api;
+namespace Scarlett\DMDD\GUI\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationService;
@@ -18,9 +18,9 @@ class VersionController extends ApiController
     {
         try {
             $version = $backendIntegrationService->getFormattedVersion();
-            return response()->json($version); // Respond with the formatted version as JSON
+            return response()->json($version);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500); // Handle exceptions gracefully
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

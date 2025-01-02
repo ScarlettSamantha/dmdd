@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Scarlett\DMDD\GUI\App\Http\Controllers\Api;
+namespace Scarlett\DMDD\GUI\Http\Controllers\Api;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,15 +9,17 @@ use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Scarlett\DMDD\GUI\Http\Controllers\ApiController;
 use Scarlett\DMDD\GUI\Repositories\SystemUserRepository;
-use Scarlett\DMDD\GUI\Services\BackendIntegrationServiceResponse;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 
 class SystemUserController extends ApiController
 {
     protected SystemUserRepository $repository;
+    protected ValidationFactory $validationFactory;
 
-    public function __construct(SystemUserRepository $repository)
+    public function __construct(SystemUserRepository $repository, ValidationFactory $validationFactory)
     {
         $this->repository = $repository;
+        $this->validationFactory = $validationFactory;
     }
 
     /**
@@ -33,27 +35,22 @@ class SystemUserController extends ApiController
 
     /**
      * POST /api/system/users
-     * Create a new user, with minimal local validation as an example.
+     * Create a new user.
      */
     public function store(Request $request): JsonResponse
     {
-        try {
-            $validatedData = $request->validate([
-                'username'     => 'required|string|max:150',
-                'email'        => 'required|email',
-                'password'     => 'required|string|min:8',
-                'first_name'   => 'sometimes|string|max:100|nullable',
-                'last_name'    => 'sometimes|string|max:100|nullable',
-                'is_active'    => 'sometimes|boolean',
-                'is_confirmed' => 'sometimes|boolean',
-                'is_admin'     => 'sometimes|boolean',
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $e->errors(),
-            ], Response::HTTP_BAD_REQUEST);
-        }
+        $rules = [
+            'username'     => 'required|string|max:150',
+            'email'        => 'required|email',
+            'password'     => 'required|string|min:8',
+            'first_name'   => 'sometimes|string|max:100|nullable',
+            'last_name'    => 'sometimes|string|max:100|nullable',
+            'is_active'    => 'sometimes|boolean',
+            'is_confirmed' => 'sometimes|boolean',
+            'is_admin'     => 'sometimes|boolean',
+        ];
+
+        $validatedData = $this->validateRequest($request, $rules);
 
         $response = $this->repository->create($validatedData);
 
@@ -77,23 +74,18 @@ class SystemUserController extends ApiController
      */
     public function update(Request $request, string $user_id): JsonResponse
     {
-        try {
-            $validatedData = $request->validate([
-                'username'     => 'sometimes|string|max:150',
-                'email'        => 'sometimes|email',
-                'password'     => 'sometimes|string|min:8',
-                'first_name'   => 'sometimes|string|max:100|nullable',
-                'last_name'    => 'sometimes|string|max:100|nullable',
-                'is_active'    => 'sometimes|boolean',
-                'is_confirmed' => 'sometimes|boolean',
-                'is_admin'     => 'sometimes|boolean',
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $e->errors(),
-            ], Response::HTTP_BAD_REQUEST);
-        }
+        $rules = [
+            'username'     => 'sometimes|string|max:150',
+            'email'        => 'sometimes|email',
+            'password'     => 'sometimes|string|min:8',
+            'first_name'   => 'sometimes|string|max:100|nullable',
+            'last_name'    => 'sometimes|string|max:100|nullable',
+            'is_active'    => 'sometimes|boolean',
+            'is_confirmed' => 'sometimes|boolean',
+            'is_admin'     => 'sometimes|boolean',
+        ];
+
+        $validatedData = $this->validateRequest($request, $rules);
 
         $response = $this->repository->update($user_id, $validatedData);
 
@@ -156,13 +148,17 @@ class SystemUserController extends ApiController
     }
 
     /**
-     * Helper function to format responses from BackendIntegrationServiceResponse.
+     * Validate a request with the given rules.
      */
-    private function formatResponse(BackendIntegrationServiceResponse $response, int $defaultStatusCode = Response::HTTP_OK): JsonResponse
+    protected function validateRequest(Request $request, array $rules): array
     {
-        return response()->json(
-            $response->toArray(),
-            $response->status_code ?? $defaultStatusCode
-        );
+        try {
+            return $this->validationFactory->make($request->all(), $rules)->validate();
+        } catch (ValidationException $e) {
+            throw new ValidationException($e, new JsonResponse([
+                'status' => 'error',
+                'errors' => $e->errors(),
+            ], Response::HTTP_BAD_REQUEST));
+        }
     }
 }
