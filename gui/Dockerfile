@@ -20,25 +20,29 @@ RUN apt-get update && apt-get install -y \
     && pecl install xdebug \
     && docker-php-ext-enable xdebug \
     && docker-php-ext-install -j20 \
-       gd \
-       mbstring \
-       mysqli \
-       pdo \
-       pdo_mysql \
-       intl \
-       exif \
-       pcntl \
-       bcmath \
-       soap \
-       sockets \
-       zip \
-       curl
+    gd \
+    mbstring \
+    mysqli \
+    pdo \
+    pdo_mysql \
+    intl \
+    exif \
+    pcntl \
+    bcmath \
+    soap \
+    sockets \
+    zip \
+    curl
 
 # Install Composer
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
     && php composer-setup.php \
     && php -r "unlink('composer-setup.php');" \
     && mv composer.phar /usr/bin/composer
+
+# Install PHPUnit globally
+RUN composer global require phpunit/phpunit ^10.0 \
+    && ln -s /root/.composer/vendor/bin/phpunit /usr/local/bin/phpunit
 
 # Set working directory
 WORKDIR /var/www/html
