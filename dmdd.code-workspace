@@ -1,0 +1,61 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.languageServer": "Pylance",
+		"php.debug.executablePath": "/usr/bin/php8.3",
+		"workbench.tree.indent": 20,
+		"files.associations": {
+			"*.css": "tailwindcss"
+		},
+		"editor.quickSuggestions": {
+			"strings": "on"
+		},
+		"workbench.iconTheme": "material-icon-theme",
+		"explorer.fileNesting.patterns": {
+			"*.ts": "${capture}.js",
+			"*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+			"*.jsx": "${capture}.js",
+			"*.tsx": "${capture}.ts",
+			"tsconfig.json": "tsconfig.*.json",
+			"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb",
+			"*.sqlite": "${capture}.${extname}-*",
+			"*.db": "${capture}.${extname}-*",
+			"*.sqlite3": "${capture}.${extname}-*",
+			"*.db3": "${capture}.${extname}-*",
+			"*.sdb": "${capture}.${extname}-*",
+			"*.s3db": "${capture}.${extname}-*"
+		},
+		"git.confirmSync": false,
+		"[javascript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"editor.formatOnSave": true,
+		"editor.formatOnPaste": true,
+		"editor.formatOnType": true,
+		"[css]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode",
+		},
+		"[json]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"[html]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"[typescript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"php.suggest.basic": true,
+		"php.validate.enable": true,
+		"php.completion.showParameters": true,
+		"python.globalModuleInstallation": true,
+		"debugpy.showPythonInlineValues": true,
+		"pythonTestExplorer.testFramework": "pytest",
+		"ruff.interpreter": [
+			"/usr/bin/python3"
+		],
+	}
+}
