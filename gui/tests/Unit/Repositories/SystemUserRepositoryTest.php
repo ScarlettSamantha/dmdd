@@ -116,7 +116,7 @@ class SystemUserRepositoryTest extends TestCase
     public function testActivateReturnsSuccessResponse(): void
     {
         $userId = 'user123';
-        $mockActivatedUser = ['id' => $userId, 'is_active' => true];
+        $mockActivatedUser = ['id' => $userId, 'isActive' => true];
 
         $this->backendIntegrationService
             ->expects($this->once())
@@ -128,13 +128,13 @@ class SystemUserRepositoryTest extends TestCase
 
         $this->assertInstanceOf(BackendIntegrationServiceResponse::class, $response);
         $this->assertSame(200, $response->status_code);
-        $this->assertTrue($response->data->is_active);
+        $this->assertTrue($response->data->isActive);
     }
 
     public function testDeactivateReturnsSuccessResponse(): void
     {
         $userId = 'user123';
-        $mockDeactivatedUser = ['id' => $userId, 'is_active' => false];
+        $mockDeactivatedUser = ['id' => $userId, 'isActive' => false];
 
         $this->backendIntegrationService
             ->expects($this->once())
@@ -146,13 +146,13 @@ class SystemUserRepositoryTest extends TestCase
 
         $this->assertInstanceOf(BackendIntegrationServiceResponse::class, $response);
         $this->assertSame(200, $response->status_code);
-        $this->assertFalse($response->data->is_active);
+        $this->assertFalse($response->data->isActive);
     }
 
     public function testConfirmReturnsSuccessResponse(): void
     {
         $userId = 'user123';
-        $mockConfirmedUser = ['id' => $userId, 'is_confirmed' => true];
+        $mockConfirmedUser = ['id' => $userId, 'isConfirmed' => true];
 
         $this->backendIntegrationService
             ->expects($this->once())
@@ -164,13 +164,13 @@ class SystemUserRepositoryTest extends TestCase
 
         $this->assertInstanceOf(BackendIntegrationServiceResponse::class, $response);
         $this->assertSame(200, $response->status_code);
-        $this->assertTrue($response->data->is_confirmed);
+        $this->assertTrue($response->data->isConfirmed);
     }
 
     public function testUnconfirmReturnsSuccessResponse(): void
     {
         $userId = 'user123';
-        $mockUnconfirmedUser = ['id' => $userId, 'is_confirmed' => false];
+        $mockUnconfirmedUser = ['id' => $userId, 'isConfirmed' => false];
 
         $this->backendIntegrationService
             ->expects($this->once())
@@ -182,6 +182,6 @@ class SystemUserRepositoryTest extends TestCase
 
         $this->assertInstanceOf(BackendIntegrationServiceResponse::class, $response);
         $this->assertSame(200, $response->status_code);
-        $this->assertFalse($response->data->is_confirmed);
+        $this->assertFalse($response->data->isConfirmed);
     }
 }
