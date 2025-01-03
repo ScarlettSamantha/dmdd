@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\WithoutErrorHandler;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationService;
+use Symfony\Component\ErrorHandler\ErrorHandler;
 
 class BackendIntegrationServiceTest extends TestCase
 {
@@ -35,6 +36,8 @@ class BackendIntegrationServiceTest extends TestCase
         $response = $this->service->fetchData($endpoint);
 
         $this->assertSame($mockResponse, $response);
+        restore_error_handler();
+        restore_exception_handler();
     }
 
     #[WithoutErrorHandler]
@@ -167,5 +170,14 @@ class BackendIntegrationServiceTest extends TestCase
             ['major' => 1, 'minor' => 2, 'patch' => 3, 'releaselevel' => 'stable', 'serial' => 1],
             $response
         );
+    }
+
+    protected function tearDown(): void
+    {
+        // Restore default exception handler
+        set_exception_handler(null);
+        set_error_handler(null);
+
+        parent::tearDown();
     }
 }
