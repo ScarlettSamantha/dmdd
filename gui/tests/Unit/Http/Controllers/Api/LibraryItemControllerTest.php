@@ -75,10 +75,11 @@ class LibraryItemControllerTest extends TestCase
 
         $mockValidator = $this->createMock(Validator::class);
         $mockValidator
+            ->method('validate')
+            ->willThrowException(new ValidationException($mockValidator));
+        $mockValidator
             ->method('errors')
-            ->willReturn(collect(['name' => ['The name field is required.']]))
-            ->method('all')
-            ->willReturn(['name' => '']);
+            ->willReturn(collect(['name' => ['The name field is required.']]));
 
         $this->validationFactory
             ->expects($this->once())
@@ -129,15 +130,16 @@ class LibraryItemControllerTest extends TestCase
 
         $mockValidator = $this->createMock(Validator::class);
         $mockValidator
+            ->method('validate')
+            ->willThrowException(new ValidationException($mockValidator));
+        $mockValidator
             ->method('errors')
-            ->willReturn(collect(['name' => ['The name field is required.']]))
-            ->method('all')
-            ->willReturn(['name' => '']);
+            ->willReturn(collect(['name' => ['The name field is required.']]));
 
         $this->validationFactory
             ->expects($this->once())
             ->method('make')
-            ->with($request ? $request->all() : [] , $this->isType('array'))
+            ->with($request->all(), $this->isType('array'))
             ->willReturn($mockValidator);
 
         $this->expectException(ValidationException::class);
