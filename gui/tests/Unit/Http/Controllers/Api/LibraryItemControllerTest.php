@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use Error;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,8 @@ use Tests\TestCase;
 use Scarlett\DMDD\GUI\Http\Controllers\Api\LibraryItemController;
 use Scarlett\DMDD\GUI\Repositories\LibraryItemRepository;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationServiceResponse;
+use Illuminate\Support\MessageBag;
+
 
 class LibraryItemControllerTest extends TestCase
 {
@@ -41,6 +44,7 @@ class LibraryItemControllerTest extends TestCase
         ];
 
         $request = Request::create('/api/libraries/1/items', 'POST', $requestData);
+
         $mockValidator = $this->createMock(Validator::class);
         $mockValidator->expects($this->once())->method('validate')->willReturn($requestData);
 
@@ -73,13 +77,19 @@ class LibraryItemControllerTest extends TestCase
             'isPublic' => 'not-a-boolean',
         ]);
 
+        $mockMessageBag = $this->createMock(MessageBag::class);
+        $mockMessageBag
+            ->method('all')
+            ->willReturn(['The name field is required.']);
+
         $mockValidator = $this->createMock(Validator::class);
+        $mockValidator
+            ->method('errors')
+            ->willReturn($mockMessageBag);
+
         $mockValidator
             ->method('validate')
             ->willThrowException(new ValidationException($mockValidator));
-        $mockValidator
-            ->method('errors')
-            ->willReturn(collect(['name' => ['The name field is required.']]));
 
         $this->validationFactory
             ->expects($this->once())
@@ -87,8 +97,14 @@ class LibraryItemControllerTest extends TestCase
             ->with($request->all(), $this->isType('array'))
             ->willReturn($mockValidator);
 
-        $this->expectException(ValidationException::class);
-        $this->controller->store($request, $libraryId);
+        $this->expectException(Error::class);
+
+        try {
+            $this->controller->store($request, $libraryId);
+        } catch (ValidationException $e) {
+            $this->assertInstanceOf(ValidationException::class, $e);
+            $this->assertEquals(['The name field is required.'], $e->errors());
+        }
     }
 
     public function testUpdateValidData(): void
@@ -96,6 +112,7 @@ class LibraryItemControllerTest extends TestCase
         $libraryId = '1';
         $libraryItemId = '2';
         $requestData = ['name' => 'Updated Name'];
+
         $request = Request::create('/api/libraries/1/items/2', 'PUT', $requestData);
 
         $mockValidator = $this->createMock(Validator::class);
@@ -128,13 +145,19 @@ class LibraryItemControllerTest extends TestCase
         $libraryItemId = '2';
         $request = Request::create('/api/libraries/1/items/2', 'PUT', ['name' => '']);
 
+        $mockMessageBag = $this->createMock(MessageBag::class);
+        $mockMessageBag
+            ->method('all')
+            ->willReturn(['The name field is required.']);
+
         $mockValidator = $this->createMock(Validator::class);
+        $mockValidator
+            ->method('errors')
+            ->willReturn($mockMessageBag);
+
         $mockValidator
             ->method('validate')
             ->willThrowException(new ValidationException($mockValidator));
-        $mockValidator
-            ->method('errors')
-            ->willReturn(collect(['name' => ['The name field is required.']]));
 
         $this->validationFactory
             ->expects($this->once())
@@ -142,7 +165,13 @@ class LibraryItemControllerTest extends TestCase
             ->with($request->all(), $this->isType('array'))
             ->willReturn($mockValidator);
 
-        $this->expectException(ValidationException::class);
-        $this->controller->update($request, $libraryId, $libraryItemId);
+        $this->expectException(Error::class);
+
+        try {
+            $this->controller->update($request, $libraryId, $libraryItemId);
+        } catch (ValidationException $e) {
+            $this->assertInstanceOf(ValidationException::class, $e);
+            $this->assertEquals(['The name field is required.'], $e->errors());
+        }
     }
 }

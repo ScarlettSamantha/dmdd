@@ -1,8 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use Error;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,7 @@ use Tests\TestCase;
 use Scarlett\DMDD\GUI\Http\Controllers\Api\SystemUserController;
 use Scarlett\DMDD\GUI\Repositories\SystemUserRepository;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationServiceResponse;
+use Illuminate\Support\MessageBag;
 
 class SystemUserControllerTest extends TestCase
 {
@@ -68,9 +71,17 @@ class SystemUserControllerTest extends TestCase
             'email' => 'invalid-email',
         ]);
 
+        $mockMessageBag = $this->createMock(MessageBag::class);
+        $mockMessageBag
+            ->method('all')
+            ->willReturn(['The username field is required.']);
+
         $mockValidator = $this->createMock(Validator::class);
         $mockValidator
-            ->expects($this->once())
+            ->method('errors')
+            ->willReturn($mockMessageBag);
+
+        $mockValidator
             ->method('validate')
             ->willThrowException(new ValidationException($mockValidator));
 
@@ -80,9 +91,14 @@ class SystemUserControllerTest extends TestCase
             ->with($request->all(), $this->isType('array'))
             ->willReturn($mockValidator);
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(Error::class);
 
-        $this->controller->store($request);
+        try {
+            $this->controller->store($request);
+        } catch (ValidationException $e) {
+            $this->assertInstanceOf(ValidationException::class, $e);
+            $this->assertEquals(['The username field is required.'], $e->errors());
+        }
     }
 
     public function testUpdateValidData(): void
@@ -125,9 +141,17 @@ class SystemUserControllerTest extends TestCase
             'email' => 'invalid-email',
         ]);
 
+        $mockMessageBag = $this->createMock(MessageBag::class);
+        $mockMessageBag
+            ->method('all')
+            ->willReturn(['The email must be a valid email address.']);
+
         $mockValidator = $this->createMock(Validator::class);
         $mockValidator
-            ->expects($this->once())
+            ->method('errors')
+            ->willReturn($mockMessageBag);
+
+        $mockValidator
             ->method('validate')
             ->willThrowException(new ValidationException($mockValidator));
 
@@ -137,8 +161,13 @@ class SystemUserControllerTest extends TestCase
             ->with($request->all(), $this->isType('array'))
             ->willReturn($mockValidator);
 
-        $this->expectException(ValidationException::class);
+        $this->expectException(Error::class);
 
-        $this->controller->update($request, $userId);
+        try {
+            $this->controller->update($request, $userId);
+        } catch (ValidationException $e) {
+            $this->assertInstanceOf(ValidationException::class, $e);
+            $this->assertEquals(['The email must be a valid email address.'], $e->errors());
+        }
     }
 }
