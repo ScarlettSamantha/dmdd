@@ -1,15 +1,16 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Scarlett\DMDD\GUI\Http\Controllers\Api;
 
-use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Scarlett\DMDD\GUI\Http\Controllers\ApiController;
 use Scarlett\DMDD\GUI\Repositories\LibraryRepository;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 
 class LibraryController extends ApiController
 {

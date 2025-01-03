@@ -6,30 +6,30 @@ namespace Tests\Unit;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Tests\TestCase;
 use Scarlett\DMDD\GUI\Http\Controllers\Api\LibraryController;
 use Scarlett\DMDD\GUI\Repositories\LibraryRepository;
-use Scarlett\DMDD\GUI\Services\BackendIntegrationServiceResponse;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
+use Illuminate\Support\Facades\Validator;
 
 class LibraryControllerTest extends TestCase
 {
     private MockObject|LibraryRepository $repository;
-    private MockObject|ValidationFactory $validationFactory;
     private LibraryController $controller;
 
     protected function setUp(): void
     {
+        parent::setUp();
         $this->repository = $this->createMock(LibraryRepository::class);
-        $this->validationFactory = $this->createMock(ValidationFactory::class);
-        $this->controller = new LibraryController($this->repository, $this->validationFactory);
+        $validationFactory = $this->createMock(ValidationFactory::class);
+        $this->controller = new LibraryController($this->repository, $validationFactory);
     }
 
     public function testIndex(): void
     {
-        $mockResponse = new BackendIntegrationServiceResponse(['library1', 'library2'], 200);
+        $mockResponse = ['library1', 'library2'];
 
         $this->repository
             ->expects($this->once())
@@ -40,7 +40,7 @@ class LibraryControllerTest extends TestCase
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals($mockResponse->toArray(), $response->getData(true));
+        $this->assertEquals($mockResponse, $response->getData(true));
     }
 
     public function testStoreValidData(): void
@@ -59,22 +59,23 @@ class LibraryControllerTest extends TestCase
             'ownerId' => '123e4567-e89b-12d3-a456-426614174000',
         ];
 
-        $mockResponse = new BackendIntegrationServiceResponse(['id' => 1], 201);
+        $mockResponse = ['id' => 1];
 
-        $this->validationFactory
-            ->expects($this->once())
-            ->method('make')
+        Validator::shouldReceive('make')
+            ->once()
             ->with($request->all(), [
                 'name' => 'required|string|max:255',
                 'description' => 'required|string',
                 'isPublic' => 'required|boolean',
                 'ownerId' => 'required|string|uuid',
             ])
-            ->willReturn(new class($validatedData) {
-                private array $data;
-                public function __construct(array $data) { $this->data = $data; }
-                public function validate() { return $this->data; }
-            });
+            ->andReturn(
+                \Mockery::mock()
+                    ->shouldReceive('fails')
+                    ->andReturn(false)
+                    ->andReturn($validatedData)
+                    ->getMock()
+            );
 
         $this->repository
             ->expects($this->once())
@@ -86,7 +87,7 @@ class LibraryControllerTest extends TestCase
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals(201, $response->getStatusCode());
-        $this->assertEquals($mockResponse->toArray(), $response->getData(true));
+        $this->assertEquals($mockResponse, $response->getData(true));
     }
 
     public function testStoreInvalidData(): void
@@ -98,20 +99,24 @@ class LibraryControllerTest extends TestCase
             'isPublic' => 'not-a-boolean',
         ]);
 
-        $validatorMock = $this->createMock(\Illuminate\Contracts\Validation\Validator::class);
-        $validatorMock->method('fails')->willReturn(true);
-        $validatorMock->method('errors')->willReturn(collect(['error' => 'Invalid data']));
-
-        $this->validationFactory
-            ->expects($this->once())
-            ->method('make')
+        Validator::shouldReceive('make')
+            ->once()
             ->with($request->all(), [
                 'name' => 'required|string|max:255',
                 'description' => 'required|string',
                 'isPublic' => 'required|boolean',
                 'ownerId' => 'required|string|uuid',
             ])
-            ->willReturn($validatorMock);
+            ->andReturn(
+                \Mockery::mock()
+                    ->shouldReceive('fails')
+                    ->andReturn(true)
+                    ->andReturn(new \Illuminate\Support\MessageBag([
+                        'name' => 'The name field is required.',
+                        'isPublic' => 'The isPublic field must be true or false.',
+                    ]))
+                    ->getMock()
+            );
 
         $this->controller->store($request);
     }
@@ -119,7 +124,7 @@ class LibraryControllerTest extends TestCase
     public function testShow(): void
     {
         $libraryId = '1';
-        $mockResponse = new BackendIntegrationServiceResponse(['id' => 1, 'name' => 'Test Library'], 200);
+        $mockResponse = ['id' => 1, 'name' => 'Test Library'];
 
         $this->repository
             ->expects($this->once())
@@ -131,7 +136,7 @@ class LibraryControllerTest extends TestCase
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals($mockResponse->toArray(), $response->getData(true));
+        $this->assertEquals($mockResponse, $response->getData(true));
     }
 
     public function testUpdate(): void
@@ -145,22 +150,23 @@ class LibraryControllerTest extends TestCase
             'name' => 'Updated Library',
         ];
 
-        $mockResponse = new BackendIntegrationServiceResponse(['id' => 1, 'name' => 'Updated Library'], 200);
+        $mockResponse = ['id' => 1, 'name' => 'Updated Library'];
 
-        $this->validationFactory
-            ->expects($this->once())
-            ->method('make')
+        Validator::shouldReceive('make')
+            ->once()
             ->with($request->all(), [
                 'name' => 'sometimes|string|max:255',
                 'description' => 'sometimes|string',
                 'isPublic' => 'sometimes|boolean',
                 'ownerId' => 'sometimes|string|uuid',
             ])
-            ->willReturn(new class($validatedData) {
-                private array $data;
-                public function __construct(array $data) { $this->data = $data; }
-                public function validate() { return $this->data; }
-            });
+            ->andReturn(
+                \Mockery::mock()
+                    ->shouldReceive('fails')
+                    ->andReturn(false)
+                    ->andReturn($validatedData)
+                    ->getMock()
+            );
 
         $this->repository
             ->expects($this->once())
@@ -172,19 +178,17 @@ class LibraryControllerTest extends TestCase
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertEquals(200, $response->getStatusCode());
-        $this->assertEquals($mockResponse->toArray(), $response->getData(true));
+        $this->assertEquals($mockResponse, $response->getData(true));
     }
 
     public function testDestroy(): void
     {
         $libraryId = '1';
-        $mockResponse = new BackendIntegrationServiceResponse(null, 204);
 
         $this->repository
             ->expects($this->once())
             ->method('delete')
-            ->with($this->equalTo($libraryId))
-            ->willReturn($mockResponse);
+            ->with($this->equalTo($libraryId));
 
         $response = $this->controller->destroy($libraryId);
 

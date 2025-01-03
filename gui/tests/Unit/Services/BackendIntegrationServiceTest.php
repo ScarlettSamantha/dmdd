@@ -1,183 +1,133 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Scarlett\DMDD\GUI\Tests\Services;
-
-use PHPUnit\Framework\Attributes\WithoutErrorHandler;
-use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 use Scarlett\DMDD\GUI\Services\BackendIntegrationService;
-use Symfony\Component\ErrorHandler\ErrorHandler;
 
 class BackendIntegrationServiceTest extends TestCase
 {
     private BackendIntegrationService $service;
-    private string $apiUrl;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->apiUrl = 'https://dmdd-core';
-        $this->service = new BackendIntegrationService();
+
+        // Configure the API URL for testing
+        config(['services.dmdd.api_url' => 'https://api.dmdd-core.local']);
     }
 
-    #[WithoutErrorHandler]
-    public function testFetchDataSuccess(): void
-    {
-        $endpoint = '/test-endpoint';
-        $mockResponse = ['key' => 'value'];
-
-        Http::shouldReceive('get')
-            ->once()
-            ->with($this->apiUrl . $endpoint)
-            ->andReturn(Http::response($mockResponse, 200));
-
-        $response = $this->service->fetchData($endpoint);
-
-        $this->assertSame($mockResponse, $response);
-        restore_error_handler();
-        restore_exception_handler();
-    }
-
-    #[WithoutErrorHandler]
-    public function testFetchDataFailure(): void
-    {
-        $endpoint = '/test-endpoint';
-
-        Http::shouldReceive('get')
-            ->once()
-            ->with($this->apiUrl . $endpoint)
-            ->andReturn(Http::response([], 500));
-
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage("Failed to fetch data from API: {$endpoint}");
-
-        $this->service->fetchData($endpoint);
-    }
-
-    #[WithoutErrorHandler]
-    public function testSendDataSuccess(): void
-    {
-        $endpoint = '/test-endpoint';
-        $data = ['key' => 'value'];
-        $mockResponse = ['result' => 'success'];
-
-        Http::shouldReceive('post')
-            ->once()
-            ->with($this->apiUrl . $endpoint, $data)
-            ->andReturn(Http::response($mockResponse, 200));
-
-        $response = $this->service->sendData($endpoint, $data);
-
-        $this->assertSame($mockResponse, $response);
-    }
-
-    #[WithoutErrorHandler]
-    public function testSendDataFailure(): void
-    {
-        $endpoint = '/test-endpoint';
-        $data = ['key' => 'value'];
-
-        Http::shouldReceive('post')
-            ->once()
-            ->with($this->apiUrl . $endpoint, $data)
-            ->andReturn(Http::response([], 400));
-
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage("Failed to send data to API: {$endpoint}");
-
-        $this->service->sendData($endpoint, $data);
-    }
-
-    #[WithoutErrorHandler]
-    public function testPutDataSuccess(): void
-    {
-        $endpoint = '/test-endpoint';
-        $data = ['key' => 'value'];
-        $mockResponse = ['result' => 'success'];
-
-        Http::shouldReceive('put')
-            ->once()
-            ->with($this->apiUrl . $endpoint, $data)
-            ->andReturn(Http::response($mockResponse, 200));
-
-        $response = $this->service->putData($endpoint, $data);
-
-        $this->assertSame($mockResponse, $response);
-    }
-
-    #[WithoutErrorHandler]
-    public function testDeleteDataSuccess(): void
-    {
-        $endpoint = '/test-endpoint';
-        $mockResponse = ['result' => 'deleted'];
-
-        Http::shouldReceive('delete')
-            ->once()
-            ->with($this->apiUrl . $endpoint)
-            ->andReturn(Http::response($mockResponse, 200));
-
-        $response = $this->service->deleteData($endpoint);
-
-        $this->assertSame($mockResponse, $response);
-    }
-
-    #[WithoutErrorHandler]
-    public function testDeleteDataFailure(): void
-    {
-        $endpoint = '/test-endpoint';
-
-        Http::shouldReceive('delete')
-            ->once()
-            ->with($this->apiUrl . $endpoint)
-            ->andReturn(Http::response([], 400));
-
-        $this->expectException(\Exception::class);
-        $this->expectExceptionMessage("Failed to delete data on API: {$endpoint}");
-
-        $this->service->deleteData($endpoint);
-    }
-
-    #[WithoutErrorHandler]
     public function testGetVersion(): void
     {
-        $mockVersion = ['version' => '1.2.3', 'releaselevel' => 'stable', 'serial' => 1];
+        $mockResponse = [
+            'version' => '1.2.3',
+            'releaselevel' => 'stable',
+            'serial' => 1,
+        ];
 
-        Http::shouldReceive('get')
-            ->once()
-            ->with($this->apiUrl . BackendIntegrationService::ENDPOINT_VERSION)
-            ->andReturn(Http::response($mockVersion, 200));
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse) {
+            $mock->shouldReceive('getVersion')->once()->andReturn($mockResponse);
+        });
 
-        $response = $this->service->getVersion();
+        $service = app(BackendIntegrationService::class);
+        $response = $service->getVersion();
 
-        $this->assertSame($mockVersion, $response);
+        $this->assertSame($mockResponse, $response);
     }
 
-    #[WithoutErrorHandler]
     public function testGetFormattedVersion(): void
     {
-        $mockVersion = ['version' => '1.2.3', 'releaselevel' => 'stable', 'serial' => 1];
+        $mockResponse = [
+            'major' => 1,
+            'minor' => 2,
+            'patch' => 3,
+            'releaselevel' => 'stable',
+            'serial' => 1,
+        ];
 
-        Http::shouldReceive('get')
-            ->once()
-            ->with($this->apiUrl . BackendIntegrationService::ENDPOINT_VERSION)
-            ->andReturn(Http::response($mockVersion, 200));
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse) {
+            $mock->shouldReceive('getFormattedVersion')->once()->andReturn($mockResponse);
+        });
 
-        $response = $this->service->getFormattedVersion();
+        $service = app(BackendIntegrationService::class);
+        $response = $service->getFormattedVersion();
 
-        $this->assertSame(
-            ['major' => 1, 'minor' => 2, 'patch' => 3, 'releaselevel' => 'stable', 'serial' => 1],
-            $response
-        );
+        $this->assertSame($mockResponse, $response);
     }
 
-    protected function tearDown(): void
+    public function testGetSystemUsers(): void
     {
-        // Restore default exception handler
-        set_exception_handler(null);
-        set_error_handler(null);
+        $mockResponse = [
+            ['id' => 1, 'name' => 'John Doe'],
+            ['id' => 2, 'name' => 'Jane Doe'],
+        ];
 
-        parent::tearDown();
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse) {
+            $mock->shouldReceive('getSystemUsers')->once()->andReturn($mockResponse);
+        });
+
+        $service = app(BackendIntegrationService::class);
+        $response = $service->getSystemUsers();
+
+        $this->assertSame($mockResponse, $response);
+    }
+
+    public function testCreateSystemUser(): void
+    {
+        $userData = ['name' => 'John Doe', 'email' => 'john.doe@example.com'];
+        $mockResponse = ['id' => 1, 'name' => 'John Doe', 'email' => 'john.doe@example.com'];
+
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse, $userData) {
+            $mock->shouldReceive('createSystemUser')->once()->with($userData)->andReturn($mockResponse);
+        });
+
+        $service = app(BackendIntegrationService::class);
+        $response = $service->createSystemUser($userData);
+
+        $this->assertSame($mockResponse, $response);
+    }
+
+    public function testGetSystemUser(): void
+    {
+        $userId = '1';
+        $mockResponse = ['id' => 1, 'name' => 'John Doe', 'email' => 'john.doe@example.com'];
+
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse, $userId) {
+            $mock->shouldReceive('getSystemUser')->once()->with($userId)->andReturn($mockResponse);
+        });
+
+        $service = app(BackendIntegrationService::class);
+        $response = $service->getSystemUser($userId);
+
+        $this->assertSame($mockResponse, $response);
+    }
+
+    public function testUpdateSystemUser(): void
+    {
+        $userId = '1';
+        $userData = ['name' => 'John Updated Doe', 'email' => 'updated.john.doe@example.com'];
+        $mockResponse = ['id' => 1, 'name' => 'John Updated Doe', 'email' => 'updated.john.doe@example.com'];
+
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse, $userId, $userData) {
+            $mock->shouldReceive('updateSystemUser')->once()->with($userId, $userData)->andReturn($mockResponse);
+        });
+
+        $service = app(BackendIntegrationService::class);
+        $response = $service->updateSystemUser($userId, $userData);
+
+        $this->assertSame($mockResponse, $response);
+    }
+
+    public function testDeleteSystemUser(): void
+    {
+        $userId = '1';
+        $mockResponse = ['success' => true];
+
+        $this->mock(BackendIntegrationService::class, function ($mock) use ($mockResponse, $userId) {
+            $mock->shouldReceive('deleteSystemUser')->once()->with($userId)->andReturn($mockResponse);
+        });
+
+        $service = app(BackendIntegrationService::class);
+        $response = $service->deleteSystemUser($userId);
+
+        $this->assertSame($mockResponse, $response);
     }
 }

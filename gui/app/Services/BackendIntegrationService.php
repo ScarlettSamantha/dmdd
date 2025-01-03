@@ -43,12 +43,11 @@ class BackendIntegrationService
     public function fetchData(string $endpoint): array
     {
         $response = Http::get($this->baseUrl . $endpoint);
-
         if ($response->failed()) {
             throw new \Exception("Failed to fetch data from API: {$endpoint}");
         }
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**
@@ -62,7 +61,7 @@ class BackendIntegrationService
             throw new \Exception("Failed to send data to API: {$endpoint}");
         }
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**
@@ -76,7 +75,7 @@ class BackendIntegrationService
             throw new \Exception("Failed to update data to API via PUT: {$endpoint}");
         }
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
     /**
@@ -90,7 +89,7 @@ class BackendIntegrationService
             throw new \Exception("Failed to delete data on API: {$endpoint}");
         }
 
-        return $response->json() ?: [];
+        return $response->json() ?? [];
     }
 
     /**
